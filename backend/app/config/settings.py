@@ -89,7 +89,7 @@ JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", 60 * 24 * 7))
 
 # --- 阿里云短信服务配置 ---
-# 阿里云访问凭证（推荐通过环境变量设置）
+# 阿里云访问凭证（必须通过环境变量设置）
 # 设置环境变量：
 # export ALIBABA_CLOUD_ACCESS_KEY_ID="your_access_key_id"
 # export ALIBABA_CLOUD_ACCESS_KEY_SECRET="your_access_key_secret"
@@ -97,9 +97,9 @@ ALIYUN_ACCESS_KEY_ID = os.getenv("ALIBABA_CLOUD_ACCESS_KEY_ID", "")
 ALIYUN_ACCESS_KEY_SECRET = os.getenv("ALIBABA_CLOUD_ACCESS_KEY_SECRET", "")
 
 # 确保阿里云SDK能读取到凭证（SDK需要特定的环境变量名）
-if not os.getenv("ALIBABA_CLOUD_ACCESS_KEY_ID"):
+if ALIYUN_ACCESS_KEY_ID and not os.getenv("ALIBABA_CLOUD_ACCESS_KEY_ID"):
     os.environ["ALIBABA_CLOUD_ACCESS_KEY_ID"] = ALIYUN_ACCESS_KEY_ID
-if not os.getenv("ALIBABA_CLOUD_ACCESS_KEY_SECRET"):
+if ALIYUN_ACCESS_KEY_SECRET and not os.getenv("ALIBABA_CLOUD_ACCESS_KEY_SECRET"):
     os.environ["ALIBABA_CLOUD_ACCESS_KEY_SECRET"] = ALIYUN_ACCESS_KEY_SECRET
 
 # 短信签名
