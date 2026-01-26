@@ -14,14 +14,29 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from pathlib import Path
 
-# 数据库路径：与现有 sql_app.db 同目录
-DATABASE_URL = "sqlite+aiosqlite:///./backend/sql_app.db"
+# 数据库配置：从环境变量读取 MySQL 连接信息
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# MySQL 连接配置
+DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
+DB_PORT = os.getenv("DB_PORT", "3306")
+DB_USER = os.getenv("DB_USER", "physmath")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+DB_NAME = os.getenv("DB_NAME", "physmath")
+
+# 构建数据库 URL
+DATABASE_URL = f"mysql+aiomysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}?charset=utf8mb4"
 
 # 创建异步引擎
 engine = create_async_engine(
     DATABASE_URL, 
     echo=False,  # 生产环境设为 False
-    future=True
+    future=True,
+    pool_pre_ping=True,  # 连接池预检测
+    pool_recycle=3600,   # 连接回收时间（秒）
 )
 
 # 创建异步会话工厂

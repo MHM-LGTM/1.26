@@ -48,7 +48,7 @@ export default function UserMenu() {
         className="user-menu-trigger" 
         onClick={() => setIsOpen(!isOpen)}
       >
-        👤 {user?.phone_number} ▼
+        <span style={{ color: '#f59e0b' }}>👤</span> {user?.phone_number} ▼
       </button>
 
       {isOpen && (

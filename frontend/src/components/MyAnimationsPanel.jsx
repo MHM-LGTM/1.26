@@ -14,8 +14,9 @@
 import React, { useState, useEffect } from 'react';
 import useAuthStore from '../store/authStore';
 import ShareLinkModal from './ShareLinkModal.jsx';
+import { API_BASE_URL } from '../config/api';
 
-export default function MyAnimationsPanel({ onLoadAnimation }) {
+export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
   const [animations, setAnimations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(null); // 当前打开菜单的动画ID
@@ -36,7 +37,7 @@ export default function MyAnimationsPanel({ onLoadAnimation }) {
     }
 
     try {
-      const response = await fetch('http://localhost:8000/api/animations/mine', {
+      const response = await fetch(`${API_BASE_URL}/api/animations/mine`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -100,7 +101,7 @@ export default function MyAnimationsPanel({ onLoadAnimation }) {
     }
 
     try {
-      const response = await fetch(`http://localhost:8000/api/animations/${animationId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/animations/${animationId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -129,7 +130,7 @@ export default function MyAnimationsPanel({ onLoadAnimation }) {
     }
 
     try {
-      const response = await fetch(`http://localhost:8000/api/animations/${animationId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/animations/${animationId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -154,7 +155,7 @@ export default function MyAnimationsPanel({ onLoadAnimation }) {
   // 上传到广场
   const handlePublish = async (animationId, showAuthor = true) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/animations/${animationId}/publish?show_author=${showAuthor}`, {
+      const response = await fetch(`${API_BASE_URL}/api/animations/${animationId}/publish?show_author=${showAuthor}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -176,35 +177,6 @@ export default function MyAnimationsPanel({ onLoadAnimation }) {
     }
   };
 
-  // 未登录状态
-  if (!isLoggedIn || !token) {
-    return (
-      <div style={{
-        position: 'fixed',
-        top: 80,
-        right: 20,
-        width: 340,
-        height: 360,
-        background: 'white',
-        borderRadius: 16,
-        padding: 20,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <p style={{ 
-          textAlign: 'center', 
-          color: '#6b7280',
-          fontSize: 14,
-          margin: 0
-        }}>
-          登录后查看我的动画
-        </p>
-      </div>
-    );
-  }
-
   return (
     <>
       <div style={{
@@ -213,10 +185,11 @@ export default function MyAnimationsPanel({ onLoadAnimation }) {
         right: 20,
         width: 340,
         height: 770,
-        background: 'white',
+        background: 'linear-gradient(135deg, #ffffff 0%, #fff8e1 100%)',
         borderRadius: 16,
         padding: 16,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+        boxShadow: '0 4px 12px rgba(255, 152, 0, 0.15)',
+        border: '1px solid #000000',
         display: 'flex',
         flexDirection: 'column'
       }}>
@@ -227,19 +200,19 @@ export default function MyAnimationsPanel({ onLoadAnimation }) {
         justifyContent: 'space-between',
         marginBottom: 12,
         paddingBottom: 12,
-        borderBottom: '1px solid #e5e7eb'
+        borderBottom: '1px solid #ffd93d'
       }}>
         <h3 style={{
           margin: 0,
           fontSize: 18,
           fontWeight: 600,
-          color: '#111827'
+          color: '#222'
         }}>
           我的动画
         </h3>
         <span style={{
           fontSize: 13,
-          color: '#9ca3af',
+          color: '#666',
           fontWeight: 500
         }}>
           {animations.length} 个
@@ -284,8 +257,11 @@ export default function MyAnimationsPanel({ onLoadAnimation }) {
               lineHeight: 1.6,
               margin: 0
             }}>
-              还没有保存的动画<br/>
-              运行模拟后点击"下载动画"即可保存
+              {!isLoggedIn || !token ? (
+                <>登录后保存和查看你的动画<br/>点击右上角登录按钮开始使用</>
+              ) : (
+                <>还没有保存的动画<br/>运行模拟后点击"下载动画"即可保存</>
+              )}
             </p>
           </div>
         ) : (
@@ -321,9 +297,9 @@ export default function MyAnimationsPanel({ onLoadAnimation }) {
                   cursor: 'pointer',
                   borderRadius: 12,
                   overflow: 'hidden',
-                  border: '1px solid #e5e7eb',
+                  border: '1px solid #ffd93d',
                   transition: 'all 0.2s',
-                  backgroundColor: 'white',
+                  backgroundColor: '#ffffff',
                   position: 'relative',
                   display: 'flex',
                   flexDirection: 'column',
@@ -343,8 +319,8 @@ export default function MyAnimationsPanel({ onLoadAnimation }) {
                 width: '100%',
                 height: 110,
                 background: anim.thumbnail_url 
-                  ? '#f3f4f6'
-                  : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  ? '#fffbf0'
+                  : 'linear-gradient(135deg, #ff9800 0%, #ff6b35 100%)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -414,7 +390,7 @@ export default function MyAnimationsPanel({ onLoadAnimation }) {
               {/* 标题和时间 */}
               <div style={{
                 padding: 8,
-                background: 'white',
+                background: '#ffffff',
                 flex: 1,
                 display: 'flex',
                 flexDirection: 'column',
@@ -424,7 +400,7 @@ export default function MyAnimationsPanel({ onLoadAnimation }) {
                 <div style={{
                   fontSize: 12,
                   fontWeight: 600,
-                  color: '#111827',
+                  color: '#222',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
@@ -437,7 +413,7 @@ export default function MyAnimationsPanel({ onLoadAnimation }) {
                 </div>
                 <div style={{
                   fontSize: 10,
-                  color: '#9ca3af',
+                  color: '#666',
                   marginTop: 1
                 }}>
                   {new Date(anim.created_at).toLocaleDateString('zh-CN', {
@@ -455,16 +431,33 @@ export default function MyAnimationsPanel({ onLoadAnimation }) {
           {placeholders.map((_, index) => (
             <div
               key={`placeholder-${index}`}
+              onClick={() => {
+                if (!isLoggedIn || !token) {
+                  alert('请先登录后再创建动画');
+                } else if (onUploadClick) {
+                  onUploadClick();
+                }
+              }}
               style={{
                 borderRadius: 12,
-                border: '2px dashed #e5e7eb',
-                background: '#f9fafb',
+                border: '1px solid #ffd93d',
+                background: '#fffbf0',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 minHeight: 145,
-                color: '#9ca3af',
-                fontSize: 28
+                color: '#666',
+                fontSize: 28,
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#fff8e1';
+                e.currentTarget.style.borderColor = '#ffcc80';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#fffbf0';
+                e.currentTarget.style.borderColor = '#ffd93d';
               }}
             >
               +
@@ -482,7 +475,7 @@ export default function MyAnimationsPanel({ onLoadAnimation }) {
             gap: 6,
             marginTop: 8,
             paddingTop: 8,
-            borderTop: '1px solid #e5e7eb'
+            borderTop: '1px solid #ffd93d'
           }}>
             <button
               onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
@@ -491,9 +484,9 @@ export default function MyAnimationsPanel({ onLoadAnimation }) {
                 width: 24,
                 height: 24,
                 borderRadius: 6,
-                border: '1px solid #e5e7eb',
-                background: currentPage === 0 ? '#f9fafb' : 'white',
-                color: currentPage === 0 ? '#d1d5db' : '#6b7280',
+                border: '1px solid #000000',
+                background: currentPage === 0 ? '#fffbf0' : 'linear-gradient(135deg, #ffffff 0%, #fff8e1 100%)',
+                color: currentPage === 0 ? '#ffcc80' : '#222',
                 cursor: currentPage === 0 ? 'not-allowed' : 'pointer',
                 fontSize: 14,
                 display: 'flex',
@@ -503,12 +496,12 @@ export default function MyAnimationsPanel({ onLoadAnimation }) {
               }}
               onMouseEnter={(e) => {
                 if (currentPage !== 0) {
-                  e.currentTarget.style.background = '#f3f4f6';
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #fff8e1 0%, #ffeaa7 100%)';
                 }
               }}
               onMouseLeave={(e) => {
                 if (currentPage !== 0) {
-                  e.currentTarget.style.background = 'white';
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #ffffff 0%, #fff8e1 100%)';
                 }
               }}
             >
@@ -517,7 +510,7 @@ export default function MyAnimationsPanel({ onLoadAnimation }) {
             
             <span style={{
               fontSize: 12,
-              color: '#6b7280',
+              color: '#222',
               minWidth: 50,
               textAlign: 'center'
             }}>
@@ -531,9 +524,9 @@ export default function MyAnimationsPanel({ onLoadAnimation }) {
                 width: 24,
                 height: 24,
                 borderRadius: 6,
-                border: '1px solid #e5e7eb',
-                background: currentPage >= totalPages - 1 ? '#f9fafb' : 'white',
-                color: currentPage >= totalPages - 1 ? '#d1d5db' : '#6b7280',
+                border: '1px solid #000000',
+                background: currentPage >= totalPages - 1 ? '#fffbf0' : 'linear-gradient(135deg, #ffffff 0%, #fff8e1 100%)',
+                color: currentPage >= totalPages - 1 ? '#ffcc80' : '#222',
                 cursor: currentPage >= totalPages - 1 ? 'not-allowed' : 'pointer',
                 fontSize: 14,
                 display: 'flex',
@@ -548,7 +541,7 @@ export default function MyAnimationsPanel({ onLoadAnimation }) {
               }}
               onMouseLeave={(e) => {
                 if (currentPage < totalPages - 1) {
-                  e.currentTarget.style.background = 'white';
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #ffffff 0%, #fff8e1 100%)';
                 }
               }}
             >
@@ -571,10 +564,10 @@ export default function MyAnimationsPanel({ onLoadAnimation }) {
             position: 'fixed',
             top: menuPosition.top,
             right: menuPosition.right,
-            background: 'white',
-            border: '1px solid #d1d5db',
+            background: 'linear-gradient(135deg, #ffffff 0%, #fff8e1 100%)',
+            border: '1px solid #ffd93d',
             borderRadius: 8,
-            boxShadow: '0 8px 16px rgba(0,0,0,0.2)',
+            boxShadow: '0 8px 16px rgba(255, 152, 0, 0.25)',
             padding: '4px 0',
             minWidth: 130,
             zIndex: 9999
@@ -591,12 +584,12 @@ export default function MyAnimationsPanel({ onLoadAnimation }) {
               textAlign: 'left',
               cursor: 'pointer',
               fontSize: 13,
-              color: '#000000',
+              color: '#222',
               display: 'flex',
               alignItems: 'center',
               gap: 8
             }}
-            onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+            onMouseEnter={(e) => e.currentTarget.style.background = '#fffbf0'}
             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
           >
             删除
@@ -607,7 +600,7 @@ export default function MyAnimationsPanel({ onLoadAnimation }) {
             <button
               onClick={async () => {
                 try {
-                  const response = await fetch(`http://localhost:8000/api/animations/${menuOpen}/unpublish`, {
+                  const response = await fetch(`${API_BASE_URL}/api/animations/${menuOpen}/unpublish`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` }
                   });
@@ -676,12 +669,12 @@ export default function MyAnimationsPanel({ onLoadAnimation }) {
               textAlign: 'left',
               cursor: 'pointer',
               fontSize: 13,
-              color: '#000000',
+              color: '#222',
               display: 'flex',
               alignItems: 'center',
               gap: 8
             }}
-            onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+            onMouseEnter={(e) => e.currentTarget.style.background = '#fffbf0'}
             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
           >
             分享链接

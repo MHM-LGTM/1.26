@@ -12,6 +12,7 @@
 
 import React, { useState, useEffect } from 'react';
 import LikeButton from './LikeButton.jsx';
+import { API_BASE_URL } from '../config/api';
 
 export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
   const [animations, setAnimations] = useState([]);
@@ -26,7 +27,7 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
   // 加载广场动画列表
   const loadPlazaAnimations = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/plaza/animations');
+      const response = await fetch(`${API_BASE_URL}/api/plaza/animations`);
       const data = await response.json();
       
       if (data.code === 0) {
@@ -59,7 +60,7 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
   // 点击卡片加载动画
   const handleCardClick = async (animationId) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/plaza/animations/${animationId}`);
+      const response = await fetch(`${API_BASE_URL}/api/plaza/animations/${animationId}`);
       const data = await response.json();
       
       if (data.code === 0) {
@@ -99,10 +100,11 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
       top: 560,  // 从"我的动画"区域下方开始（80 + 440 + 20）
       left: 20,
       right: 400,  // 为右侧"我的动画"面板留空间
-      background: 'white',
+      background: 'linear-gradient(135deg, #ffffff 0%, #fff8e1 100%)',
       borderRadius: 16,
       padding: 16,
-      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+      boxShadow: '0 4px 12px rgba(255, 152, 0, 0.15)',
+      border: '1px solid #000000',
       display: 'flex',
       flexDirection: 'row',
       overflow: 'hidden'
@@ -119,7 +121,7 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
           margin: '0 0 12px 0',
           fontSize: 18,
           fontWeight: 600,
-          color: '#111827',
+          color: '#222',
           flexShrink: 0
         }}>
           动画广场 ({animations.length})
@@ -176,19 +178,30 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
             return (
               <div
                 key={anim.id}
+                style={{
+                  padding: isSelected ? '3px' : '0',
+                  transition: 'padding 0.2s',
+                  flexShrink: 0,
+                  zIndex: isSelected ? 10 : 1,
+                  width: isSelected ? '126px' : '120px',
+                  boxSizing: 'border-box'
+                }}
+              >
+              <div
                 onClick={() => handleCardClick(anim.id)}
                 style={{
-                  minWidth: 140,
-                  maxWidth: 140,
+                  width: '100%',
+                  minWidth: 120,
+                  maxWidth: 120,
                   cursor: 'pointer',
                   borderRadius: 12,
                   overflow: 'hidden',
-                  border: isSelected ? '2px solid #3b82f6' : '1px solid #e5e7eb',
+                  border: isSelected ? '2px solid #ff9800' : '1px solid #ffd93d',
                   transition: 'all 0.2s',
-                  backgroundColor: 'white',
-                  flexShrink: 0,
+                  backgroundColor: '#ffffff',
                   transform: isSelected ? 'scale(1.05)' : 'scale(1)',
-                  boxShadow: isSelected ? '0 6px 20px rgba(59, 130, 246, 0.3)' : 'none'
+                  transformOrigin: 'center center',
+                  boxShadow: isSelected ? '0 6px 20px rgba(139, 92, 246, 0.3)' : 'none'
                 }}
                 onMouseEnter={(e) => {
                   if (!isSelected) {
@@ -208,8 +221,8 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
                 width: '100%',
                 height:50,
                 background: anim.thumbnail_url 
-                  ? '#f3f4f6'
-                  : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  ? '#fffbf0'
+                  : 'linear-gradient(135deg, #ff9800 0%, #ff6b35 100%)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -236,12 +249,12 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
               {/* 标题、点赞、作者 */}
               <div style={{
                 padding: 8,
-                background: 'white'
+                background: '#ffffff'
               }}>
                 <div style={{
                   fontSize: 13,
                   fontWeight: 500,
-                  color: '#111827',
+                  color: '#222',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
@@ -266,9 +279,10 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
                     size="small"
                   />
                   {anim.author_name && (
-                    <span style={{ fontSize: 10 }}>👤 {anim.author_name}</span>
+                    <span style={{ fontSize: 10, color: '#f59e0b' }}>👤 {anim.author_name}</span>
                   )}
                 </div>
+              </div>
               </div>
             </div>
             );
@@ -286,7 +300,7 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
           justifyContent: 'center',
           gap: 12,
           paddingLeft: 16,
-          borderLeft: '1px solid #e5e7eb',
+          borderLeft: '1px solid #ffd93d',
           minWidth: 60
         }}>
           {/* 上一页按钮 */}
@@ -297,9 +311,9 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
               width: 36,
               height: 36,
               borderRadius: 8,
-              border: '1px solid #e5e7eb',
-              background: currentPage === 0 ? '#f9fafb' : 'white',
-              color: currentPage === 0 ? '#d1d5db' : '#6b7280',
+              border: '1px solid #ffd93d',
+              background: currentPage === 0 ? '#fffbf0' : 'linear-gradient(135deg, #ffffff 0%, #fff8e1 100%)',
+              color: currentPage === 0 ? '#ffcc80' : '#222',
               cursor: currentPage === 0 ? 'not-allowed' : 'pointer',
               fontSize: 18,
               display: 'flex',
@@ -310,14 +324,14 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
             }}
             onMouseEnter={(e) => {
               if (currentPage !== 0) {
-                e.currentTarget.style.background = '#f3f4f6';
+                e.currentTarget.style.background = 'linear-gradient(135deg, #fff8e1 0%, #ffeaa7 100%)';
                 e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(255, 152, 0, 0.2)';
               }
             }}
             onMouseLeave={(e) => {
               if (currentPage !== 0) {
-                e.currentTarget.style.background = 'white';
+                e.currentTarget.style.background = 'linear-gradient(135deg, #ffffff 0%, #fff8e1 100%)';
                 e.currentTarget.style.transform = 'translateY(0)';
                 e.currentTarget.style.boxShadow = 'none';
               }
@@ -336,7 +350,7 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
             <span style={{
               fontSize: 14,
               fontWeight: 600,
-              color: '#111827'
+              color: '#222'
             }}>
               {currentPage + 1}
             </span>
@@ -362,9 +376,9 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
               width: 36,
               height: 36,
               borderRadius: 8,
-              border: '1px solid #e5e7eb',
-              background: currentPage >= totalPages - 1 ? '#f9fafb' : 'white',
-              color: currentPage >= totalPages - 1 ? '#d1d5db' : '#6b7280',
+              border: '1px solid #ffd93d',
+              background: currentPage >= totalPages - 1 ? '#fffbf0' : 'linear-gradient(135deg, #ffffff 0%, #fff8e1 100%)',
+              color: currentPage >= totalPages - 1 ? '#ffcc80' : '#222',
               cursor: currentPage >= totalPages - 1 ? 'not-allowed' : 'pointer',
               fontSize: 18,
               display: 'flex',
@@ -375,14 +389,14 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
             }}
             onMouseEnter={(e) => {
               if (currentPage < totalPages - 1) {
-                e.currentTarget.style.background = '#f3f4f6';
+                e.currentTarget.style.background = 'linear-gradient(135deg, #fff8e1 0%, #ffeaa7 100%)';
                 e.currentTarget.style.transform = 'translateY(2px)';
-                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(255, 152, 0, 0.2)';
               }
             }}
             onMouseLeave={(e) => {
               if (currentPage < totalPages - 1) {
-                e.currentTarget.style.background = 'white';
+                e.currentTarget.style.background = 'linear-gradient(135deg, #ffffff 0%, #fff8e1 100%)';
                 e.currentTarget.style.transform = 'translateY(0)';
                 e.currentTarget.style.boxShadow = 'none';
               }

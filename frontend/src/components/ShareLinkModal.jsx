@@ -15,11 +15,13 @@
 
 import React, { useState, useEffect } from 'react';
 import useAuthStore from '../store/authStore';
+import { API_BASE_URL, APP_BASE_URL } from '../config/api';
 
 export default function ShareLinkModal({ isOpen, onClose, animationId, existingShareCode = null }) {
   const [shareUrl, setShareUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isCloseHovered, setIsCloseHovered] = useState(false);
   const token = useAuthStore((state) => state.token);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
 
@@ -29,7 +31,7 @@ export default function ShareLinkModal({ isOpen, onClose, animationId, existingS
 
     // 如果已有分享码，直接构建 URL
     if (existingShareCode) {
-      const url = `http://localhost:5174/physics/play/${existingShareCode}`;
+      const url = `${APP_BASE_URL}/physics/play/${existingShareCode}`;
       setShareUrl(url);
       return;
     }
@@ -45,7 +47,7 @@ export default function ShareLinkModal({ isOpen, onClose, animationId, existingS
       setLoading(true);
       try {
         const response = await fetch(
-          `http://localhost:8000/api/animations/${animationId}/share-link`,
+          `${API_BASE_URL}/api/animations/${animationId}/share-link`,
           {
             method: 'POST',
             headers: {
@@ -114,20 +116,50 @@ export default function ShareLinkModal({ isOpen, onClose, animationId, existingS
     >
       <div 
         style={{
-          background: 'white',
+          background: 'linear-gradient(135deg, #ffffff 0%, #fff8e1 100%)',
           borderRadius: 16,
           padding: 24,
           width: '90%',
           maxWidth: 480,
-          boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+          boxShadow: '0 20px 60px rgba(255, 152, 0, 0.3)',
+          border: '1px solid #ffd93d',
+          position: 'relative'
         }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* 右上角关闭按钮 */}
+        <button
+          onClick={onClose}
+          onMouseEnter={() => setIsCloseHovered(true)}
+          onMouseLeave={() => setIsCloseHovered(false)}
+          style={{
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            width: 24,
+            height: 24,
+            border: isCloseHovered ? '1px solid #999' : 'none',
+            background: 'transparent',
+            borderRadius: '50%',
+            cursor: 'pointer',
+            fontSize: 20,
+            color: '#666',
+            padding: 0,
+            lineHeight: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.2s'
+          }}
+        >
+          ×
+        </button>
+
         <h3 style={{ 
           margin: '0 0 20px 0', 
           fontSize: 20, 
           fontWeight: 600,
-          color: '#111827'
+          color: '#222'
         }}>
           🔗 分享链接
         </h3>
@@ -142,11 +174,11 @@ export default function ShareLinkModal({ isOpen, onClose, animationId, existingS
             <div style={{
               marginBottom: 16,
               padding: 12,
-              background: '#f9fafb',
-              border: '1px solid #e5e7eb',
+              background: '#fffbf0',
+              border: '1px solid #ffd93d',
               borderRadius: 8,
               fontSize: 14,
-              color: '#374151',
+              color: '#222',
               wordBreak: 'break-all'
             }}>
               {shareUrl}
@@ -158,9 +190,9 @@ export default function ShareLinkModal({ isOpen, onClose, animationId, existingS
               style={{
                 width: '100%',
                 padding: '12px',
-                border: '1px solid #d1d5db',
-                background: copied ? '#10b981' : 'white',
-                color: copied ? 'white' : '#374151',
+                border: '1px solid #000000',
+                background: copied ? '#10b981' : 'linear-gradient(135deg, #ffffff 0%, #fffef8 100%)',
+                color: copied ? 'white' : '#222',
                 borderRadius: 8,
                 cursor: 'pointer',
                 fontSize: 14,
@@ -182,25 +214,6 @@ export default function ShareLinkModal({ isOpen, onClose, animationId, existingS
             }}>
               分享给朋友，他们可以直接打开链接运行动画
             </p>
-
-            {/* 关闭按钮 */}
-            <button
-              onClick={onClose}
-              style={{
-                width: '100%',
-                marginTop: 16,
-                padding: '10px',
-                border: '1px solid #d1d5db',
-                background: 'white',
-                borderRadius: 8,
-                cursor: 'pointer',
-                fontSize: 14,
-                fontWeight: 500,
-                color: '#374151'
-              }}
-            >
-              关闭
-            </button>
           </>
         )}
       </div>

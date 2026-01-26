@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import List, Tuple
+import threading
 
 import numpy as np
 from PIL import Image
@@ -25,6 +26,13 @@ from ..config.settings import SAM_CHECKPOINT_PATH, SAM_DEVICE
 
 _predictor = None  # SamPredictor 实例（懒加载）
 _current_image_path: str | None = None  # 已设置到 predictor 的图片路径（用于避免重复 set_image）
+
+# ========================================================================
+# 线程锁：保护全局 _predictor 和 _current_image_path 的并发访问
+# - 即使使用了 Semaphore 限制并发数，仍需要锁来保护全局状态
+# - 防止多个线程同时修改 _current_image_path 或调用 predictor 方法
+# ========================================================================
+_sam_lock = threading.Lock()
 
 
 def _guess_sam2_config_name(checkpoint_path: Path) -> str:
@@ -80,6 +88,8 @@ def init_sam() -> None:
 def _ensure_image(image_path: str) -> int:
     """确保 predictor 已设置为该图片，并返回 embedding 耗时（毫秒）。
 
+    线程安全：使用锁保护全局状态，防止并发访问冲突。
+
     - 若当前图片已在 predictor 中，则返回 0；
     - 若需重新设置图片，则计算 `set_image` 的耗时并返回。
 
@@ -87,22 +97,30 @@ def _ensure_image(image_path: str) -> int:
     因此对同一张图片的多次分割，不需要重复 set_image（可显著减少耗时）。
     """
     global _current_image_path
-    if _predictor is None:
-        raise RuntimeError("SAM 模型未加载，请检查权重路径与依赖安装")
-    if _current_image_path == image_path:
-        return 0
-    import time
-    t0 = time.perf_counter()
-    img = np.array(Image.open(image_path).convert("RGB"))
-    _predictor.set_image(img)
-    _current_image_path = image_path
-    ms = int((time.perf_counter() - t0) * 1000)
-    log.debug(f"set_image done in {ms} ms: {image_path}")
-    return ms
+    
+    # 使用锁保护全局状态的读写
+    with _sam_lock:
+        if _predictor is None:
+            raise RuntimeError("SAM 模型未加载，请检查权重路径与依赖安装")
+        
+        # 如果已经是当前图片，无需重新设置
+        if _current_image_path == image_path:
+            return 0
+        
+        import time
+        t0 = time.perf_counter()
+        img = np.array(Image.open(image_path).convert("RGB"))
+        _predictor.set_image(img)
+        _current_image_path = image_path
+        ms = int((time.perf_counter() - t0) * 1000)
+        log.debug(f"[SAM预热] set_image 完成: {ms}ms, 图片={image_path}")
+        return ms
 
 
 def segment_with_points(image_path: str, points: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
     """根据点击点坐标生成掩码并返回轮廓坐标。
+
+    线程安全：使用锁保护 SAM 模型的预测操作。
 
     - image_path: 服务器本地图片路径
     - points: [(x, y), ...] 像素坐标
@@ -115,54 +133,66 @@ def segment_with_points(image_path: str, points: List[Tuple[int, int]]) -> List[
 
     pts = np.array(points)
     labels = np.ones((len(points),), dtype=np.int64)  # 所有点作为前景提示
-    # 返回 (N, H, W) 掩码；此处取第一个得分最高的掩码
+    
+    # 使用锁保护 predict 操作
     import time
     t1 = time.perf_counter()
-    masks, scores, _ = _predictor.predict(point_coords=pts, point_labels=labels, multimask_output=True)
+    with _sam_lock:
+        masks, scores, _ = _predictor.predict(point_coords=pts, point_labels=labels, multimask_output=True)
+    
     if masks is None or len(masks) == 0:
         return []
     best_idx = int(np.argmax(scores))
     mask = masks[best_idx]
     t2 = time.perf_counter()
     contour = extract_contour(mask.astype(np.uint8))
-    log.info(f"segment(points) time: predict={int((t2-t1)*1000)}ms, contour={int((time.perf_counter()-t2)*1000)}ms, points={len(contour)}")
+    log.info(f"[SAM分割] 点选模式: predict={int((t2-t1)*1000)}ms, contour={int((time.perf_counter()-t2)*1000)}ms, 轮廓点数={len(contour)}")
     return contour
 
 
 def segment_with_box(image_path: str, box: Tuple[int, int, int, int]) -> List[Tuple[int, int]]:
     """根据框选提示生成掩码并返回轮廓坐标。
 
+    线程安全：使用锁保护 SAM 模型的预测操作。
+
     - box: [x1, y1, x2, y2] 像素坐标（左上到右下）。
     """
     _ensure_image(image_path)
 
     x1, y1, x2, y2 = box
-    # SAM 支持 box 提示
+    
+    # 使用锁保护 predict 操作
     import time
     t1 = time.perf_counter()
-    # 对框选，关闭 multimask_output 以减少计算量（返回单掩码）
-    masks, scores, _ = _predictor.predict(box=np.array([x1, y1, x2, y2]), multimask_output=False)
+    with _sam_lock:
+        # 对框选，关闭 multimask_output 以减少计算量（返回单掩码）
+        masks, scores, _ = _predictor.predict(box=np.array([x1, y1, x2, y2]), multimask_output=False)
+    
     if masks is None or len(masks) == 0:
         return []
     best_idx = int(np.argmax(scores))
     mask = masks[best_idx]
     t2 = time.perf_counter()
     contour = extract_contour(mask.astype(np.uint8))
-    log.info(f"segment(box) time: predict={int((t2-t1)*1000)}ms, contour={int((time.perf_counter()-t2)*1000)}ms, points={len(contour)}")
+    log.info(f"[SAM分割] 框选模式: predict={int((t2-t1)*1000)}ms, contour={int((time.perf_counter()-t2)*1000)}ms, 轮廓点数={len(contour)}")
     return contour
 
 
 def preload_image(image_path: str) -> int:
     """对上传图片进行一次 embedding 预热，并返回耗时（毫秒）。
 
+    线程安全：通过 _ensure_image 的锁机制保护。
+    
     该函数供路由在图片上传后调用，从而使用户在第一次点选/框选时无需再等待 embedding 计算。
     """
     try:
         ms = _ensure_image(image_path)
-        # 统一日志（便于前后端排查性能）
-        log.info(f"preload_image: image={image_path}, embed_ms={ms}")
+        if ms > 0:
+            log.info(f"[SAM预热成功] 图片={image_path}, 耗时={ms}ms")
+        else:
+            log.debug(f"[SAM预热跳过] 图片已缓存: {image_path}")
         return ms
     except Exception as e:
         # 不中断上传流程；记录错误供排查
-        log.error(f"preload_image failed: {e}")
+        log.error(f"[SAM预热失败] 图片={image_path}, 错误={e}")
         return -1

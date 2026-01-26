@@ -14,6 +14,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { runSimulation } from '../utils/physicsEngine.js';
 import useAuthStore from '../store/authStore';
+import { API_BASE_URL } from '../config/api';
 
 export default function PlayPage() {
   const { shareCode } = useParams();
@@ -33,7 +34,7 @@ export default function PlayPage() {
   useEffect(() => {
     const loadAnimation = async () => {
       try {
-        const response = await fetch(`http://localhost:8000/api/play/${shareCode}`);
+        const response = await fetch(`${API_BASE_URL}/api/play/${shareCode}`);
         const data = await response.json();
         
         if (data.code === 0) {
@@ -121,7 +122,7 @@ export default function PlayPage() {
 
     try {
       const response = await fetch(
-        `http://localhost:8000/api/plaza/animations/${animation.id}/fork`,
+        `${API_BASE_URL}/api/plaza/animations/${animation.id}/fork`,
         {
           method: 'POST',
           headers: {
@@ -227,9 +228,9 @@ export default function PlayPage() {
           fontSize: 14,
           color: '#9ca3af'
         }}>
-          <span>❤️ {animation.like_count || 0} 点赞</span>
+          <span style={{ color: '#fbbf24' }}>❤️ {animation.like_count || 0} 点赞</span>
           {animation.author_name && (
-            <span>👤 作者：{animation.author_name}</span>
+            <span style={{ color: '#f59e0b' }}>👤 作者：{animation.author_name}</span>
           )}
         </div>
       </div>

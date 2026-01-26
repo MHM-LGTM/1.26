@@ -14,6 +14,7 @@ import MyAnimationsPanel from '../components/MyAnimationsPanel.jsx';
 import PlazaPanel from '../components/PlazaPanel.jsx';
 import LoginModal from '../components/Auth/LoginModal.jsx';
 import UserMenu from '../components/Auth/UserMenu.jsx';
+import AboutMenu from '../components/AboutMenu.jsx';
 import useAuthStore from '../store/authStore.js';
 
 export default function PhysicsPage() {
@@ -49,7 +50,7 @@ export default function PhysicsPage() {
       <div className="topbar">
         <InputSelector />
         
-        {/* 右上角：登录状态 */}
+        {/* 右上角：登录状态与关于 */}
         <div className="topbar-right">
           {isLoggedIn ? (
             <UserMenu />
@@ -61,6 +62,7 @@ export default function PhysicsPage() {
               登录 / 注册
             </button>
           )}
+          <AboutMenu />
         </div>
       </div>
 
@@ -77,6 +79,12 @@ export default function PhysicsPage() {
           handleLoadAnimation(sceneData);
           setPlazaAnimationInfo(null); // 加载我的动画时，清除广场信息
           setCurrentAnimationSource('my'); // 标记为我的动画
+        }}
+        onUploadClick={() => {
+          // 触发 PhysicsInputBox 的上传功能
+          if (physicsBoxRef.current?.triggerUpload) {
+            physicsBoxRef.current.triggerUpload();
+          }
         }}
       />
 

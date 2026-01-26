@@ -87,3 +87,29 @@ JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-please-change-in-p
 JWT_ALGORITHM = "HS256"
 # Token 过期时间（分钟），默认 7 天
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", 60 * 24 * 7))
+
+# --- 阿里云短信服务配置 ---
+# 阿里云访问凭证（推荐通过环境变量设置）
+# 设置环境变量：
+# export ALIBABA_CLOUD_ACCESS_KEY_ID="your_access_key_id"
+# export ALIBABA_CLOUD_ACCESS_KEY_SECRET="your_access_key_secret"
+ALIYUN_ACCESS_KEY_ID = os.getenv("ALIBABA_CLOUD_ACCESS_KEY_ID", "")
+ALIYUN_ACCESS_KEY_SECRET = os.getenv("ALIBABA_CLOUD_ACCESS_KEY_SECRET", "")
+
+# 确保阿里云SDK能读取到凭证（SDK需要特定的环境变量名）
+if not os.getenv("ALIBABA_CLOUD_ACCESS_KEY_ID"):
+    os.environ["ALIBABA_CLOUD_ACCESS_KEY_ID"] = ALIYUN_ACCESS_KEY_ID
+if not os.getenv("ALIBABA_CLOUD_ACCESS_KEY_SECRET"):
+    os.environ["ALIBABA_CLOUD_ACCESS_KEY_SECRET"] = ALIYUN_ACCESS_KEY_SECRET
+
+# 短信签名
+SMS_SIGN_NAME = os.getenv("SMS_SIGN_NAME", "异想云科技")
+
+# 短信模板CODE
+SMS_TEMPLATE_REGISTER = os.getenv("SMS_TEMPLATE_REGISTER", "SMS_501195179")  # 注册验证码
+SMS_TEMPLATE_RESET_PASSWORD = os.getenv("SMS_TEMPLATE_RESET_PASSWORD", "SMS_501315182")  # 找回密码验证码
+
+# 验证码配置
+VERIFICATION_CODE_EXPIRE_MINUTES = int(os.getenv("VERIFICATION_CODE_EXPIRE_MINUTES", 5))  # 验证码有效期（分钟）
+VERIFICATION_CODE_LENGTH = int(os.getenv("VERIFICATION_CODE_LENGTH", 6))  # 验证码长度
+SMS_RATE_LIMIT_SECONDS = int(os.getenv("SMS_RATE_LIMIT_SECONDS", 60))  # 同一手机号发送间隔（秒）

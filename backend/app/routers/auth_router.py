@@ -21,6 +21,8 @@ import re
 
 from ..models.user import User
 from ..services.auth_service import hash_password, verify_password, create_access_token, decode_access_token
+from ..services.sms_service import get_sms_service
+from ..services.verification_service import get_verification_service
 from ..config.database import get_db
 from ..models.response_schema import ApiResponse
 
@@ -34,10 +36,24 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
 # Pydantic 模型
 # ============================================================================
 
+class SendVerificationCodeRequest(BaseModel):
+    """发送验证码请求"""
+    phone_number: str = Field(..., min_length=11, max_length=11, description="手机号")
+    scene: str = Field(..., description="场景：register(注册) 或 reset_password(找回密码)")
+
+
 class RegisterRequest(BaseModel):
     """注册请求"""
     phone_number: str = Field(..., min_length=11, max_length=11, description="手机号")
     password: str = Field(..., min_length=6, description="密码")
+    verification_code: str = Field(..., min_length=4, max_length=8, description="验证码")
+
+
+class ResetPasswordRequest(BaseModel):
+    """重置密码请求"""
+    phone_number: str = Field(..., min_length=11, max_length=11, description="手机号")
+    verification_code: str = Field(..., min_length=4, max_length=8, description="验证码")
+    new_password: str = Field(..., min_length=6, description="新密码")
 
 
 class UserResponse(BaseModel):
@@ -118,6 +134,68 @@ async def get_current_user(
 # API 路由
 # ============================================================================
 
+@router.post("/send-code", response_model=ApiResponse)
+async def send_verification_code(req: SendVerificationCodeRequest):
+    """
+    发送短信验证码
+    
+    请求体：
+    - phone_number: 手机号（11位）
+    - scene: 场景（register/reset_password）
+    
+    返回：
+    - 发送结果
+    """
+    
+    # 校验手机号格式
+    if not validate_phone_number(req.phone_number):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="手机号格式错误"
+        )
+    
+    # 校验场景
+    if req.scene not in ["register", "reset_password"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="场景参数错误，必须是 register 或 reset_password"
+        )
+    
+    # 获取服务
+    verification_service = get_verification_service()
+    sms_service = get_sms_service()
+    
+    # 生成并存储验证码
+    success, code, message = verification_service.generate_and_store_code(
+        req.phone_number,
+        req.scene  # type: ignore
+    )
+    
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=message
+        )
+    
+    # 发送短信
+    sms_success, sms_message = await sms_service.send_verification_code(
+        req.phone_number,
+        code,
+        req.scene  # type: ignore
+    )
+    
+    if not sms_success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"短信发送失败: {sms_message}"
+        )
+    
+    return ApiResponse.ok({
+        "message": "验证码已发送，请注意查收",
+        "phone_number": mask_phone_number(req.phone_number)
+    })
+
+
 @router.post("/register", response_model=ApiResponse)
 async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
     """
@@ -126,6 +204,7 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
     请求体：
     - phone_number: 手机号（11位）
     - password: 密码（至少6位）
+    - verification_code: 验证码
     
     返回：
     - 注册成功的用户信息
@@ -136,6 +215,20 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="手机号格式错误"
+        )
+    
+    # 验证验证码
+    verification_service = get_verification_service()
+    verify_success, verify_message = verification_service.verify_code(
+        req.phone_number,
+        "register",
+        req.verification_code
+    )
+    
+    if not verify_success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=verify_message
         )
     
     # 检查手机号是否已存在
@@ -241,6 +334,63 @@ async def get_me(current_user: User = Depends(get_current_user)):
     return ApiResponse.ok({
         "id": current_user.id,
         "phone_number": mask_phone_number(current_user.phone_number)
+    })
+
+
+@router.post("/reset-password", response_model=ApiResponse)
+async def reset_password(req: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+    """
+    重置密码（找回密码）
+    
+    请求体：
+    - phone_number: 手机号（11位）
+    - verification_code: 验证码
+    - new_password: 新密码（至少6位）
+    
+    返回：
+    - 重置结果
+    """
+    
+    # 校验手机号格式
+    if not validate_phone_number(req.phone_number):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="手机号格式错误"
+        )
+    
+    # 验证验证码
+    verification_service = get_verification_service()
+    verify_success, verify_message = verification_service.verify_code(
+        req.phone_number,
+        "reset_password",
+        req.verification_code
+    )
+    
+    if not verify_success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=verify_message
+        )
+    
+    # 查询用户
+    result = await db.execute(
+        select(User).where(User.phone_number == req.phone_number)
+    )
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="该手机号未注册"
+        )
+    
+    # 更新密码
+    user.hashed_password = hash_password(req.new_password)
+    await db.commit()
+    
+    return ApiResponse.ok({
+        "message": "密码重置成功",
+        "phone_number": mask_phone_number(user.phone_number)
     })
 
 

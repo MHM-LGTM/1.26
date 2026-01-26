@@ -16,6 +16,7 @@
 
 import React, { useState } from 'react';
 import useAuthStore from '../store/authStore';
+import { API_BASE_URL } from '../config/api';
 
 export default function SaveAnimationModal({ isOpen, onClose, sceneData, getSceneData }) {
   // 优先使用 getSceneData 函数（动态获取最新数据），否则用传入的 sceneData
@@ -73,7 +74,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
       
       console.log('[SaveAnimationModal] 封面图URL:', thumbnailUrl ? '存在（使用原始上传图片）' : '不存在');
       
-      const response = await fetch('http://localhost:8000/api/animations', {
+      const response = await fetch(`${API_BASE_URL}/api/animations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -124,7 +125,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
     if (!savedAnimationId) return;
 
     try {
-      const response = await fetch(`http://localhost:8000/api/animations/${savedAnimationId}/publish?show_author=${showAuthor}`, {
+      const response = await fetch(`${API_BASE_URL}/api/animations/${savedAnimationId}/publish?show_author=${showAuthor}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -201,12 +202,13 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
       >
         <div 
           style={{
-            background: 'white',
+            background: 'linear-gradient(135deg, #ffffff 0%, #fff8e1 100%)',
             borderRadius: 16,
             padding: 24,
             width: '90%',
             maxWidth: 400,
-            boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+            boxShadow: '0 20px 60px rgba(255, 152, 0, 0.3)',
+            border: '1px solid #ffd93d'
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -214,7 +216,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
             margin: '0 0 16px 0', 
             fontSize: 18, 
             fontWeight: 600,
-            color: '#111827'
+            color: '#222'
           }}>
             ✅ 保存成功！
           </h3>
@@ -285,13 +287,13 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
               onClick={handleSkipPublish}
               style={{
                 padding: '10px 20px',
-                border: '1px solid #d1d5db',
-                background: 'white',
+                border: '1px solid #ffd93d',
+                background: 'linear-gradient(135deg, #ffffff 0%, #fffef8 100%)',
                 borderRadius: 8,
                 cursor: 'pointer',
                 fontSize: 14,
                 fontWeight: 500,
-                color: '#374151'
+                color: '#222'
               }}
             >
               暂不了
@@ -300,13 +302,13 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
               onClick={handlePublishToPlaza}
               style={{
                 padding: '10px 20px',
-                border: '1px solid #d1d5db',
-                background: 'white',
+                border: '1px solid #ff9800',
+                background: 'linear-gradient(135deg, #fff8e1 0%, #ffeaa7 100%)',
                 borderRadius: 8,
                 cursor: 'pointer',
                 fontSize: 14,
                 fontWeight: 500,
-                color: '#374151'
+                color: '#222'
               }}
             >
               上传到广场
@@ -337,12 +339,13 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
     >
       <div 
         style={{
-          background: 'white',
+          background: 'linear-gradient(135deg, #ffffff 0%, #fff8e1 100%)',
           borderRadius: 16,
           padding: 24,
           width: '90%',
           maxWidth: 480,
-          boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+          boxShadow: '0 20px 60px rgba(255, 152, 0, 0.3)',
+          border: '1px solid #ffd93d',
           maxHeight: '90vh',
           overflowY: 'auto'
         }}
@@ -352,7 +355,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
           margin: '0 0 20px 0', 
           fontSize: 20, 
           fontWeight: 600,
-          color: '#111827'
+          color: '#222'
         }}>
           保存动画到我的动画库
         </h3>
@@ -367,7 +370,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
                 maxWidth: '100%',
                 maxHeight: 200,
                 borderRadius: 8,
-                border: '2px solid #e5e7eb',
+                border: '2px solid #ffd93d',
                 objectFit: 'contain'
               }}
             />
@@ -402,15 +405,16 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
             style={{
               width: '100%',
               padding: '10px 12px',
-              border: '2px solid #d1d5db',
+              border: '2px solid #ffd93d',
               borderRadius: 8,
               fontSize: 14,
               boxSizing: 'border-box',
               outline: 'none',
-              transition: 'border-color 0.2s'
+              transition: 'border-color 0.2s',
+              background: '#ffffff'
             }}
-            onFocus={(e) => e.target.style.borderColor = '#667eea'}
-            onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
+            onFocus={(e) => e.target.style.borderColor = '#ff9800'}
+            onBlur={(e) => e.target.style.borderColor = '#ffd93d'}
           />
           <p style={{ 
             fontSize: 12, 
@@ -442,17 +446,18 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
             style={{
               width: '100%',
               padding: '10px 12px',
-              border: '2px solid #d1d5db',
+              border: '2px solid #ffd93d',
               borderRadius: 8,
               fontSize: 14,
               resize: 'vertical',
               boxSizing: 'border-box',
               fontFamily: 'inherit',
               outline: 'none',
-              transition: 'border-color 0.2s'
+              transition: 'border-color 0.2s',
+              background: '#ffffff'
             }}
-            onFocus={(e) => e.target.style.borderColor = '#667eea'}
-            onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
+            onFocus={(e) => e.target.style.borderColor = '#ff9800'}
+            onBlur={(e) => e.target.style.borderColor = '#ffd93d'}
           />
           <p style={{ 
             fontSize: 12, 
@@ -474,13 +479,13 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
             disabled={saving}
             style={{
               padding: '10px 20px',
-              border: '1px solid #d1d5db',
-              background: 'white',
+              border: '1px solid #000000',
+              background: 'linear-gradient(135deg, #ffffff 0%, #fffef8 100%)',
               borderRadius: 8,
               cursor: saving ? 'not-allowed' : 'pointer',
               fontSize: 14,
               fontWeight: 500,
-              color: '#374151'
+              color: '#222'
             }}
           >
             取消
@@ -490,13 +495,13 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
             disabled={saving || !title.trim()}
             style={{
               padding: '10px 20px',
-              border: '1px solid #d1d5db',
-              background: saving || !title.trim() ? '#f3f4f6' : 'white',
+              border: '1px solid #000000',
+              background: saving || !title.trim() ? '#fffbf0' : 'linear-gradient(135deg, #fff8e1 0%, #ffeaa7 100%)',
               borderRadius: 8,
               cursor: saving || !title.trim() ? 'not-allowed' : 'pointer',
               fontSize: 14,
               fontWeight: 500,
-              color: saving || !title.trim() ? '#9ca3af' : '#374151'
+              color: saving || !title.trim() ? '#9ca3af' : '#222'
             }}
           >
             {saving ? '保存中...' : '保存'}

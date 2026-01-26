@@ -6,14 +6,24 @@
 */
 
 :root {
-  --bg: #f7f7f7;
-  --border: #d0d0d0;
+  --bg: linear-gradient(135deg, #fffbf0 0%, #fff8e1 50%, #ffeaa7 100%);
+  --bg-solid: #fffbf0;
+  --border: #ffcc80;
+  --border-light: #ffd93d;
   --primary: #222;
+  --primary-light: #ff9800;
+  --primary-dark: #e67e22;
+  --card-bg: linear-gradient(135deg, #ffffff 0%, #fffef8 100%);
+  --card-bg-solid: #ffffff;
+  --text-primary: #222;
+  --text-secondary: #444;
+  --text-muted: #666;
 }
 
 body {
   margin: 0;
   background: var(--bg);
+  background-attachment: fixed;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
     'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji';
 }
@@ -39,7 +49,7 @@ body {
 }
 
 .auth-hint {
-  color: #666;
+  color: var(--text-muted);
 }
 
 .upload-area {
@@ -47,12 +57,13 @@ body {
   height: 382px;
   max-width: calc(101.5vw - 450px); /* 为右侧"我的动画"面板留出更多空间 */
   border-radius: 28px;
-  border: 2px dashed var(--border);
-  background: #fff;
+  border: 1px solid #000000;
+  background: var(--card-bg);
   display: flex;
   align-items: stretch;
   justify-content: stretch;
   overflow: hidden;
+  box-shadow: 0 4px 16px rgba(255, 152, 0, 0.15);
 }
 
 .upload-split-left {
@@ -68,11 +79,11 @@ body {
   flex: 1 1 0%;
   min-width: 0;
   position: relative;
-  border-left: 2px dashed var(--border);
+  border-left: 1px solid #000000;
 }
 
 .upload-text {
-  color: #444;
+  color: var(--text-primary);
   font-size: 18px;
 }
 
@@ -85,9 +96,19 @@ body {
 .start-btn {
   padding: 10px 18px;
   border-radius: 12px;
-  border: 2px solid var(--border);
-  background: #fff;
+  border: 1px solid #000000;
+  background: linear-gradient(135deg, #ffffff 0%, #fffef8 100%);
+  color: var(--primary);
   cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.start-btn:hover {
+  background: linear-gradient(135deg, #fff8e1 0%, #ffeaa7 100%);
+  border-color: #000000;
+  box-shadow: 0 4px 12px rgba(255, 152, 0, 0.2);
+  transform: translateY(-1px);
 }
 
 .selector {
@@ -97,11 +118,20 @@ body {
 
 .selector a {
   padding: 8px 14px;
-  border: 2px solid var(--border);
+  border: 1px solid #000000;
   border-radius: 12px;
   color: var(--primary);
   text-decoration: none;
-  background: #fff;
+  background: var(--card-bg);
+  transition: all 0.2s;
+  font-weight: 500;
+}
+
+.selector a:hover {
+  background: linear-gradient(135deg, #fff8e1 0%, #ffeaa7 100%);
+  border-color: var(--primary-light);
+  box-shadow: 0 2px 8px rgba(255, 152, 0, 0.15);
+  transform: translateY(-1px);
 }
 
 .canvas-holder {
@@ -115,5 +145,5 @@ body {
 
 .status-line {
   margin-top: 8px;
-  color: #333;
+  color: var(--text-primary);
 }

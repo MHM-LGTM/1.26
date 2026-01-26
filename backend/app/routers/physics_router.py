@@ -32,6 +32,8 @@
 from fastapi import APIRouter, UploadFile, File
 from typing import Dict, List
 from uuid import uuid4
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 
@@ -45,6 +47,15 @@ from ..services.opencv_service import extract_sprite, inpaint_remove_objects
 
 
 router = APIRouter()
+
+# ========================================================================
+# 并发控制：使用信号量限制同时进行预热+AI识别的用户数量
+# - 最多允许5个用户同时处理（预热+AI识别）
+# - 第6个及之后的用户会自动排队等待
+# - 当有用户处理完成后，排队的下一个用户自动获得处理资格
+# ========================================================================
+_upload_semaphore = asyncio.Semaphore(5)
+_executor = ThreadPoolExecutor(max_workers=10)  # 全局线程池，复用避免重复创建
 
 
 def _normalize_elements(full: Dict[str, object] | None) -> List[Dict[str, object]]:
@@ -173,43 +184,97 @@ def _normalize_elements(full: Dict[str, object] | None) -> List[Dict[str, object
 async def upload_image(file: UploadFile = File(...)):
     """保存物理模拟图片，预热 embedding 并调用豆包分析，返回元素与耗时。
 
+    并发控制：
+    - 最多允许5个用户同时进行预热+AI识别
+    - 第6个及之后的用户会自动排队等待
+    - 处理完成后自动释放资源，让排队的下一个用户进入
+
     返回字段说明：
     - `path`: 图片在后端的保存路径（字符串）。
     - `embed_ms`: 预热 embedding 的耗时（毫秒）。
     - `ai_ms`: 豆包多模态分析耗时（毫秒），当为 -1 表示调用失败或未启用。
+    - `total_ms`: 并行执行的总耗时（毫秒），等于 max(embed_ms, ai_ms)。
+    - `wait_ms`: 排队等待的耗时（毫秒），如果无需等待则为 0。
     - `elements`: 模型识别到的元素名称数组（已做简化）。
     - `doubao_error`: 当调用异常时附带错误信息，方便前端直观展示问题来源。
     """
+    import time
+    request_start = time.perf_counter()
+    
+    # 保存图片
     save_path = save_upload_file("physics", file)
-    log.info(f"Physics image saved: {save_path}")
-    # 同步预热：计算该图片的 embedding，避免用户首次交互等待
-    embed_ms = preload_image(str(save_path))
-    # 同步调用豆包多模态分析（若失败不影响上传流程）
-    ai_ms = -1
-    elements: list[str] = []
-    elements_detailed: list[Dict[str, object]] = []
-    analysis: Dict[str, object] | None = None
-    doubao_error: str | None = None
-    try:
-        ai_result = analyze_physics_image(str(save_path))
-        ai_ms = int(ai_result.get("ai_ms", -1))
-        elements = ai_result.get("elements", [])
-        full = ai_result.get("full")
-        elements_detailed = _normalize_elements(full)
-        analysis = {
-            "elements": elements_detailed,
-            "assumptions": (full or {}).get("assumptions", []),
-            "confidence": (full or {}).get("confidence"),
-        }
-        log.info(f"AI elements: {elements}")
-    except Exception as e:
-        log.error(f"AI 分析失败（忽略并继续）：{e}")
-        doubao_error = str(e)
+    log.info(f"[上传] 图片已保存: {save_path}")
+    
+    # 检查当前排队情况
+    available_slots = _upload_semaphore._value
+    waiting_count = max(0, 5 - available_slots)
+    if waiting_count > 0:
+        log.info(f"[排队] 当前有 {waiting_count} 个用户正在处理，本次请求将等待...")
+    
+    # ========================================================================
+    # 【并发控制】使用信号量限制并发数
+    # - 获得信号量令牌后，才能开始预热和AI识别
+    # - 两个任务并行执行，都完成后才释放令牌
+    # - 第6个及之后的用户会在这里自动排队等待
+    # ========================================================================
+    async with _upload_semaphore:
+        processing_start = time.perf_counter()
+        wait_ms = int((processing_start - request_start) * 1000)
+        
+        if wait_ms > 100:
+            log.info(f"[获得资格] 等待了 {wait_ms}ms，开始处理: {save_path}")
+        else:
+            log.info(f"[开始处理] 无需等待，立即处理: {save_path}")
+        
+        # 定义预热任务
+        async def preload_task():
+            try:
+                loop = asyncio.get_event_loop()
+                return await loop.run_in_executor(_executor, preload_image, str(save_path))
+            except Exception as e:
+                log.error(f"[预热失败] {e}")
+                return -1
+        
+        # 定义AI分析任务
+        async def ai_task():
+            try:
+                loop = asyncio.get_event_loop()
+                return await loop.run_in_executor(_executor, analyze_physics_image, str(save_path))
+            except Exception as e:
+                log.error(f"[AI失败] {e}")
+                return {"ai_ms": -1, "elements": [], "full": None, "error": str(e)}
+        
+        # 并行执行预热和AI识别，等待两者都完成
+        embed_ms, ai_result = await asyncio.gather(preload_task(), ai_task())
+        
+        processing_ms = int((time.perf_counter() - processing_start) * 1000)
+        log.info(f"[处理完成] 预热耗时={embed_ms}ms, AI耗时={ai_result.get('ai_ms', -1)}ms, 处理总耗时={processing_ms}ms")
+    
+    # 信号量已释放，下一个排队的用户可以开始处理了
+    
+    # 计算总耗时（包含排队时间）
+    total_ms = int((time.perf_counter() - request_start) * 1000)
+    
+    # 处理AI分析结果
+    ai_ms = int(ai_result.get("ai_ms", -1))
+    elements = ai_result.get("elements", [])
+    full = ai_result.get("full")
+    elements_detailed = _normalize_elements(full)
+    analysis = {
+        "elements": elements_detailed,
+        "assumptions": (full or {}).get("assumptions", []),
+        "confidence": (full or {}).get("confidence"),
+    }
+    doubao_error = ai_result.get("error") or None
+    
+    log.info(f"[响应返回] 路径={save_path}, 总耗时={total_ms}ms (其中等待={wait_ms}ms), 元素数={len(elements)}")
 
     return ApiResponse.ok({
         "path": str(save_path),
         "embed_ms": embed_ms,
         "ai_ms": ai_ms,
+        "total_ms": total_ms,
+        "wait_ms": wait_ms,  # 新增：排队等待耗时
         "elements": elements,
         "elements_detailed": elements_detailed,
         "analysis": analysis,

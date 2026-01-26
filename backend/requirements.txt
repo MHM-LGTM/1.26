@@ -1,3 +1,4 @@
+aiomysql==0.3.2
 aiosqlite==0.21.0
 annotated-doc==0.0.4
 annotated-types==0.7.0
@@ -78,3 +79,5 @@ uvicorn==0.38.0
 uvloop==0.22.1
 watchfiles==1.1.1
 websockets==15.0.1
+alibabacloud_dysmsapi20170525==2.0.24
+alibabacloud_tea_openapi==0.3.9

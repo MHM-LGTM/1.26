@@ -16,6 +16,7 @@
 
 import React, { useState, useEffect } from 'react';
 import useAuthStore from '../store/authStore';
+import { API_BASE_URL } from '../config/api';
 
 export default function LikeButton({ animationId, initialLikeCount = 0, size = 'medium' }) {
   const [liked, setLiked] = useState(false);
@@ -38,7 +39,7 @@ export default function LikeButton({ animationId, initialLikeCount = 0, size = '
     const checkLikeStatus = async () => {
       try {
         const response = await fetch(
-          `http://localhost:8000/api/plaza/animations/${animationId}/like-status`,
+          `${API_BASE_URL}/api/plaza/animations/${animationId}/like-status`,
           {
             headers: {
               'Authorization': `Bearer ${token}`
@@ -73,7 +74,7 @@ export default function LikeButton({ animationId, initialLikeCount = 0, size = '
       if (liked) {
         // 取消点赞
         const response = await fetch(
-          `http://localhost:8000/api/plaza/animations/${animationId}/like`,
+          `${API_BASE_URL}/api/plaza/animations/${animationId}/like`,
           {
             method: 'DELETE',
             headers: {
@@ -92,7 +93,7 @@ export default function LikeButton({ animationId, initialLikeCount = 0, size = '
       } else {
         // 点赞
         const response = await fetch(
-          `http://localhost:8000/api/plaza/animations/${animationId}/like`,
+          `${API_BASE_URL}/api/plaza/animations/${animationId}/like`,
           {
             method: 'POST',
             headers: {
@@ -131,7 +132,7 @@ export default function LikeButton({ animationId, initialLikeCount = 0, size = '
         padding: '4px 8px',
         borderRadius: 8,
         fontSize: config.fontSize,
-        color: liked ? '#ef4444' : '#9ca3af',
+        color: liked ? '#f59e0b' : '#fbbf24',
         transition: 'all 0.2s'
       }}
       onMouseEnter={(e) => {
@@ -144,7 +145,7 @@ export default function LikeButton({ animationId, initialLikeCount = 0, size = '
       }}
     >
       <span style={{ fontSize: config.iconSize }}>
-        {liked ? '❤️' : '🤍'}
+        {liked ? '💛' : '🤍'}
       </span>
       <span>{likeCount}</span>
     </button>

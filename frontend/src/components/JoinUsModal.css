@@ -1,0 +1,270 @@
+/**
+ * 加入我们弹窗样式
+ * ---------------------------------
+ * 复用登录窗口的样式风格，但尺寸更大，内容更丰富
+ */
+
+/* 弹窗主容器 - 比登录窗口稍大，适用于所有内容弹窗 */
+.join-us-modal-content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(135deg, #ffffff 0%, #fff8e1 100%);
+  border-radius: 16px;
+  padding: 48px 32px 32px 32px; /* 增加顶部padding为关闭按钮留空间 */
+  width: 90%;
+  max-width: 600px; /* 比登录窗口的420px更大 */
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(255, 152, 0, 0.25);
+  border: 1px solid #ffd93d;
+  z-index: 1001;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* 标题 */
+.join-us-title {
+  text-align: center;
+  font-size: 28px;
+  margin-bottom: 24px;
+  margin-top: 8px;
+  color: #222;
+  font-weight: 600;
+}
+
+/* 主要内容区域 */
+.join-us-content {
+  margin-bottom: 32px;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+  line-height: 1.8;
+}
+
+.join-us-content p {
+  color: #374151;
+  font-size: 15px;
+  margin-bottom: 16px;
+}
+
+.join-us-content p:last-child {
+  margin-bottom: 0;
+}
+
+.email-link {
+  color: #ff9800;
+  font-weight: 600;
+  text-decoration: none;
+  margin-left: 4px;
+  transition: color 0.2s;
+}
+
+.email-link:hover {
+  color: #ff6b35;
+  text-decoration: underline;
+}
+
+/* 招募信息区域 */
+.recruitment-section {
+  margin-bottom: 32px;
+}
+
+.recruitment-intro {
+  color: #374151;
+  font-size: 15px;
+  margin-bottom: 16px;
+  font-weight: 500;
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+/* 联系方式区域 */
+.contact-section {
+  margin-bottom: 24px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.contact-section p {
+  color: #374151;
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.contact-section p:last-child {
+  margin-bottom: 0;
+}
+
+/* 职位卡片 */
+.position-card {
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.position-card:last-child {
+  margin-bottom: 0;
+}
+
+.position-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.position-icon {
+  font-size: 24px;
+}
+
+.position-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #222;
+  margin: 0;
+}
+
+.requirements-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.requirements-list li {
+  padding: 8px 0;
+  padding-left: 24px;
+  color: #4b5563;
+  font-size: 14px;
+  position: relative;
+}
+
+.requirements-list li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: #ff9800;
+  font-weight: bold;
+}
+
+/* 二维码区域 */
+.qrcode-section {
+  margin-top: 0;
+}
+
+.qrcode-container {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+.qrcode-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.qrcode-placeholder {
+  width: 140px;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qrcode-box {
+  background: white;
+  border: 2px dashed #e5e7eb;
+  border-radius: 12px;
+  padding: 10px;
+  transition: all 0.2s;
+}
+
+.qrcode-box:hover {
+  border-color: #ffd93d;
+  box-shadow: 0 2px 8px rgba(255, 152, 0, 0.1);
+}
+
+.qrcode-label {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* 滚动条样式 */
+.join-us-modal-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.join-us-modal-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+}
+
+.join-us-modal-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 152, 0, 0.3);
+  border-radius: 4px;
+}
+
+.join-us-modal-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 152, 0, 0.5);
+}
+
+/* 响应式 */
+@media (max-width: 640px) {
+  .join-us-modal-content {
+    width: 95%;
+    padding: 24px 20px;
+    max-height: 90vh;
+  }
+  
+  .join-us-title {
+    font-size: 24px;
+  }
+
+  .section-title {
+    font-size: 18px;
+  }
+
+  .position-title {
+    font-size: 16px;
+  }
+
+  .qrcode-container {
+    gap: 24px;
+  }
+
+  .qrcode-placeholder {
+    width: 120px;
+    height: 120px;
+  }
+
+  .qrcode-box svg {
+    width: 100px;
+    height: 100px;
+  }
+}

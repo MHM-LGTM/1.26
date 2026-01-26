@@ -1,0 +1,23 @@
+INFO:     Started server process [1829820]
+INFO:     Waiting for application startup.
+2026-01-25 11:22:40,594 INFO root: Loaded checkpoint sucessfully
+2026-01-25 11:22:40,741 INFO app: SAM2 模型已加载: device=cpu, ckpt=/root/12.26/backend/app/checkpoints/sam2_hiera_base_plus.pt, config=sam2_hiera_b+.yaml
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:47362 - "GET /healthz HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49916 - "POST /api/feedback HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46966 - "GET /healthz HTTP/1.1" 200 OK
+INFO:     127.0.0.1:46982 - "GET /api/plaza/animations HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51044 - "POST /api/feedback HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38940 - "GET /healthz HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38930 - "GET /api/plaza/animations HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40728 - "POST /api/feedback HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53246 - "GET /healthz HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53254 - "GET /api/plaza/animations HTTP/1.1" 200 OK
+2026-01-25 22:55:32,673 WARNING passlib.handlers.bcrypt: (trapped) error reading bcrypt version
+Traceback (most recent call last):
+  File "/root/12.26/myenv/lib64/python3.12/site-packages/passlib/handlers/bcrypt.py", line 620, in _load_backend_mixin
+    version = _bcrypt.__about__.__version__
+              ^^^^^^^^^^^^^^^^^
+AttributeError: module 'bcrypt' has no attribute '__about__'
+INFO:     127.0.0.1:47438 - "POST /auth/token HTTP/1.1" 401 Unauthorized

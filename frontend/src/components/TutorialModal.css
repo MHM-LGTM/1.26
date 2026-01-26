@@ -1,0 +1,39 @@
+/**
+ * 使用教程弹窗样式
+ * ---------------------------------
+ */
+
+.tutorial-modal-content {
+  max-width: 800px; /* 比其他弹窗更宽，适合视频 */
+}
+
+.video-section {
+  margin: 24px 0;
+}
+
+.video-container {
+  width: 100%;
+  background: #000;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.tutorial-video {
+  width: 100%;
+  height: auto;
+  display: block;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+}
+
+/* 移动端适配 */
+@media (max-width: 640px) {
+  .tutorial-modal-content {
+    max-width: 95%;
+  }
+  
+  .tutorial-video {
+    aspect-ratio: 16 / 9;
+  }
+}

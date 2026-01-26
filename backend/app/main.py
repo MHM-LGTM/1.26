@@ -20,6 +20,7 @@ import os
 from .routers.physics_router import router as physics_router
 from .routers.auth_router import router as auth_router
 from .routers.animation_router import router as animation_router
+from .routers.feedback_router import router as feedback_router
 from .services.segment_service import init_sam
 from .config.settings import FRONTEND_ORIGINS, UPLOAD_DIR
 
@@ -49,6 +50,7 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 app.include_router(physics_router, prefix="/physics", tags=["physics"])
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(animation_router, prefix="/api", tags=["animations"])
+app.include_router(feedback_router, tags=["feedback"])
 _enable_math = os.getenv("ENABLE_MATH", "false").lower() == "true"
 if _enable_math:
     try:
