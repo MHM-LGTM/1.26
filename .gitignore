@@ -3,4 +3,25 @@ frontend/node_modules/
 myenv/
 Python-3.12.3/
 .env
+.env.local
+frontend/.env
 frontend/.env.local
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# SQLite database
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
