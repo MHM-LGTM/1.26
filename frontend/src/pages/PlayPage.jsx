@@ -4,7 +4,8 @@
  * 功能：
  * - 通过分享码加载并播放动画
  * - 精简 UI，专注于动画展示
- * - 提供 Fork 到我的动画功能（需登录）
+ * - 支持手动开始模拟和重置功能
+ * - 使用与主界面一致的设计风格
  * 
  * 使用：
  * 路由：/physics/play/:shareCode
@@ -13,7 +14,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { runSimulation } from '../utils/physicsEngine.js';
-import useAuthStore from '../store/authStore';
 import { API_BASE_URL } from '../config/api';
 
 export default function PlayPage() {
@@ -22,13 +22,11 @@ export default function PlayPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [simulating, setSimulating] = useState(false);
+  const [simulationCache, setSimulationCache] = useState(null); // 缓存初始状态用于重置
   
   const imgRef = useRef(null);
   const simRef = useRef(null);
   const runningSimulation = useRef(null);
-  
-  const token = useAuthStore((state) => state.token);
-  const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
 
   // 加载动画数据
   useEffect(() => {
@@ -39,8 +37,7 @@ export default function PlayPage() {
         
         if (data.code === 0) {
           setAnimation(data.data);
-          // 自动开始模拟
-          setTimeout(() => handleStartSimulate(data.data), 1000);
+          // 移除自动播放：用户需要手动点击"开始模拟"按钮
         } else {
           setError(data.message || '动画不存在或链接已失效');
         }
@@ -57,9 +54,15 @@ export default function PlayPage() {
     }
   }, [shareCode]);
 
-  // 开始模拟
+  // 开始模拟或重置
   const handleStartSimulate = (animData = animation) => {
     if (!animData || !animData.scene_data) return;
+
+    // 如果已在运行，则执行重置
+    if (simulating) {
+      handleReset();
+      return;
+    }
 
     setSimulating(true);
     
@@ -91,6 +94,14 @@ export default function PlayPage() {
       
       const constraints = sceneData.constraints || [];
 
+      // 缓存初始状态用于重置
+      setSimulationCache({
+        objects,
+        constraints,
+        imageRect: imgRef.current?.getBoundingClientRect?.(),
+        naturalSize: sceneData.imageNaturalSize || { w: 800, h: 600 }
+      });
+
       // 清理旧模拟
       if (runningSimulation.current) {
         runningSimulation.current.stop();
@@ -110,39 +121,39 @@ export default function PlayPage() {
     } catch (err) {
       console.error('模拟失败:', err);
       alert('模拟失败：' + err.message);
+      setSimulating(false);
     }
   };
 
-  // Fork 到我的动画
-  const handleFork = async () => {
-    if (!isLoggedIn || !token) {
-      alert('请先登录后再保存');
-      return;
+  // 重置功能
+  const handleReset = () => {
+    console.log('[PlayPage] 点击重置，停止模拟并回到初始状态');
+    
+    // 停止当前运行的模拟
+    if (runningSimulation.current) {
+      runningSimulation.current.stop();
+      runningSimulation.current = null;
     }
-
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/plaza/animations/${animation.id}/fork`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-      
-      const data = await response.json();
-      
-      if (data.code === 0) {
-        alert('✅ 已保存到我的动画！\n\n返回首页可以在"我的动画"中查看。');
-      } else {
-        alert(`保存失败：${data.message}`);
-      }
-    } catch (error) {
-      console.error('Fork 失败:', error);
-      alert(`保存失败：${error.message}`);
+    
+    // 使用缓存的数据重新创建模拟
+    if (simulationCache) {
+      setTimeout(() => {
+        const sim = runSimulation({
+          container: simRef.current,
+          objects: simulationCache.objects,
+          constraints: simulationCache.constraints,
+          imageRect: simulationCache.imageRect,
+          naturalSize: simulationCache.naturalSize,
+        });
+        
+        runningSimulation.current = sim;
+        console.log('[PlayPage] 已重置到初始状态');
+      }, 50);
     }
+    
+    setSimulating(false);
   };
+
 
   if (loading) {
     return (
@@ -151,9 +162,9 @@ export default function PlayPage() {
         alignItems: 'center',
         justifyContent: 'center',
         height: '100vh',
-        background: '#f9fafb'
+        background: 'linear-gradient(135deg, #fffbf0 0%, #fff8e1 50%, #ffeaa7 100%)'
       }}>
-        <p style={{ fontSize: 18, color: '#6b7280' }}>加载中...</p>
+        <p style={{ fontSize: 18, color: '#222' }}>加载中...</p>
       </div>
     );
   }
@@ -166,7 +177,7 @@ export default function PlayPage() {
         alignItems: 'center',
         justifyContent: 'center',
         height: '100vh',
-        background: '#f9fafb',
+        background: 'linear-gradient(135deg, #fffbf0 0%, #fff8e1 50%, #ffeaa7 100%)',
         gap: 16
       }}>
         <p style={{ fontSize: 18, color: '#ef4444' }}>❌ {error}</p>
@@ -174,11 +185,12 @@ export default function PlayPage() {
           href="/physics" 
           style={{
             padding: '10px 20px',
-            background: 'white',
-            border: '1px solid #d1d5db',
+            background: 'linear-gradient(135deg, #ffffff 0%, #fffef8 100%)',
+            border: '1px solid #000000',
             borderRadius: 8,
             textDecoration: 'none',
-            color: '#374151'
+            color: '#222',
+            fontWeight: 500
           }}
         >
           返回首页
@@ -190,22 +202,22 @@ export default function PlayPage() {
   return (
     <div style={{
       padding: 24,
-      background: '#f9fafb',
+      background: 'linear-gradient(135deg, #fffbf0 0%, #fff8e1 50%, #ffeaa7 100%)',
       minHeight: '100vh'
     }}>
       {/* 顶部信息 */}
       <div style={{
         marginBottom: 16,
-        background: 'white',
+        background: 'linear-gradient(135deg, #ffffff 0%, #fffef8 100%)',
         padding: 16,
         borderRadius: 12,
-        border: '1px solid #e5e7eb'
+        border: '1px solid #000000'
       }}>
         <h1 style={{
           margin: '0 0 8px 0',
           fontSize: 24,
           fontWeight: 600,
-          color: '#111827'
+          color: '#222'
         }}>
           📝 {animation.title}
         </h1>
@@ -214,7 +226,7 @@ export default function PlayPage() {
           <p style={{
             margin: '0 0 12px 0',
             fontSize: 14,
-            color: '#6b7280',
+            color: '#666',
             lineHeight: 1.6
           }}>
             {animation.description}
@@ -226,11 +238,11 @@ export default function PlayPage() {
           gap: 16,
           alignItems: 'center',
           fontSize: 14,
-          color: '#9ca3af'
+          color: '#666'
         }}>
-          <span style={{ color: '#fbbf24' }}>❤️ {animation.like_count || 0} 点赞</span>
+          <span style={{ color: '#ff9800' }}>❤️ {animation.like_count || 0} 点赞</span>
           {animation.author_name && (
-            <span style={{ color: '#f59e0b' }}>👤 作者：{animation.author_name}</span>
+            <span style={{ color: '#ff9800' }}>👤 作者：{animation.author_name}</span>
           )}
         </div>
       </div>
@@ -247,12 +259,13 @@ export default function PlayPage() {
             maxWidth: 800,
             margin: '0 auto',
             borderRadius: 16,
-            border: '2px solid #e5e7eb',
-            background: '#fff',
+            border: '1px solid #000000',
+            background: 'linear-gradient(135deg, #ffffff 0%, #fffef8 100%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            boxShadow: '0 4px 16px rgba(255, 152, 0, 0.15)'
           }}
         >
           {animation.scene_data?.imagePreview && (
@@ -295,37 +308,29 @@ export default function PlayPage() {
           }}>
             <button
               onClick={() => handleStartSimulate()}
-              disabled={simulating}
               style={{
                 padding: '10px 18px',
                 borderRadius: 12,
-                border: '2px solid #d1d5db',
-                background: 'rgba(255, 255, 255, 0.95)',
-                backdropFilter: 'blur(8px)',
-                cursor: simulating ? 'not-allowed' : 'pointer',
-                fontSize: 14,
-                fontWeight: 500,
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
-              }}
-            >
-              {simulating ? '运行中...' : '▶️ 播放'}
-            </button>
-            
-            <button
-              onClick={handleFork}
-              style={{
-                padding: '10px 18px',
-                borderRadius: 12,
-                border: '2px solid #d1d5db',
-                background: 'rgba(255, 255, 255, 0.95)',
+                border: '1px solid #000000',
+                background: 'linear-gradient(135deg, #ffffff 0%, #fffef8 100%)',
                 backdropFilter: 'blur(8px)',
                 cursor: 'pointer',
                 fontSize: 14,
                 fontWeight: 500,
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
+                boxShadow: '0 4px 12px rgba(255, 152, 0, 0.2)',
+                transition: 'all 0.2s',
+                color: '#222'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = 'linear-gradient(135deg, #fff8e1 0%, #ffeaa7 100%)';
+                e.target.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = 'linear-gradient(135deg, #ffffff 0%, #fffef8 100%)';
+                e.target.style.transform = 'translateY(0)';
               }}
             >
-              💾 保存到我的
+              {simulating ? '🔄 重置' : '▶️ 开始模拟'}
             </button>
           </div>
         </div>
@@ -341,13 +346,24 @@ export default function PlayPage() {
           href="/physics" 
           style={{
             padding: '10px 20px',
-            background: 'white',
-            border: '1px solid #d1d5db',
+            background: 'linear-gradient(135deg, #ffffff 0%, #fffef8 100%)',
+            border: '1px solid #000000',
             borderRadius: 8,
             textDecoration: 'none',
-            color: '#374151',
+            color: '#222',
             fontSize: 14,
-            fontWeight: 500
+            fontWeight: 500,
+            transition: 'all 0.2s'
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.background = 'linear-gradient(135deg, #fff8e1 0%, #ffeaa7 100%)';
+            e.target.style.transform = 'translateY(-1px)';
+            e.target.style.boxShadow = '0 2px 8px rgba(255, 152, 0, 0.15)';
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.background = 'linear-gradient(135deg, #ffffff 0%, #fffef8 100%)';
+            e.target.style.transform = 'translateY(0)';
+            e.target.style.boxShadow = 'none';
           }}
         >
           ← 返回首页

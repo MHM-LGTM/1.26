@@ -54,7 +54,7 @@ import SaveAnimationModal from './SaveAnimationModal.jsx';
 import LikeButton from './LikeButton.jsx';
 import ShareLinkModal from './ShareLinkModal.jsx';
 import useAuthStore from '../store/authStore';
-import { drawContour, clear, drawDragRect } from '../utils/drawMask.js';
+import { drawContour, clear, drawDragRect, drawPivotMarker } from '../utils/drawMask.js';
 import { runSimulation } from '../utils/physicsEngine.js';
 
 // ============================================================================
@@ -212,6 +212,9 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
   
   // 记录最后一次鼠标操作的位置，用于弹窗定位
   const [lastMousePos, setLastMousePos] = useState(null);
+  
+  // 记录已选择的端点位置（用于绘制视觉反馈）
+  const [selectedPivots, setSelectedPivots] = useState([]);
 
   const uploadRef = useRef(null);
   const canvasRef = useRef(null);
@@ -520,6 +523,12 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
     setDragEnd({ x, y });
     const ctx = canvasRef.current.getContext('2d');
     clear(ctx, Math.floor(rect.width), Math.floor(rect.height));
+    
+    // 重绘已选择的端点标记
+    selectedPivots.forEach(pivot => {
+      drawPivotMarker(ctx, pivot.x, pivot.y, pivot.type);
+    });
+    
     // 绘制当前拖拽矩形
     const x1 = Math.min(dragStart.x, x);
     const y1 = Math.min(dragStart.y, y);
@@ -605,6 +614,18 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         }
       }));
 
+      // 绘制第一个端点标记
+      const ctx = canvasRef.current?.getContext('2d');
+      if (ctx && canvasRef.current) {
+        const width = Math.floor(canvasRef.current.getBoundingClientRect().width);
+        const height = Math.floor(canvasRef.current.getBoundingClientRect().height);
+        clear(ctx, width, height);
+        drawPivotMarker(ctx, clickPoint.x, clickPoint.y, 'first');
+      }
+      
+      // 保存端点位置用于后续重绘
+      setSelectedPivots([{ x: clickPoint.x, y: clickPoint.y, type: 'first' }]);
+
       setInteractionMode('select_second_endpoint');
       setError('');
     } else {
@@ -626,15 +647,28 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
       console.log('[约束系统] 建立单摆约束:', newConstraint);
       setConstraintRelations(prev => [...prev, newConstraint]);
 
-      setPendingPivotSelection(null);
-      setInteractionMode('segment');
-
+      // 绘制端点标记（单摆只有一个端点）
       const ctx = canvasRef.current?.getContext('2d');
       if (ctx && canvasRef.current) {
         const width = Math.floor(canvasRef.current.getBoundingClientRect().width);
         const height = Math.floor(canvasRef.current.getBoundingClientRect().height);
         clear(ctx, width, height);
+        drawPivotMarker(ctx, clickPoint.x, clickPoint.y, 'first');
       }
+
+      // 短暂显示标记后清除
+      setTimeout(() => {
+        const ctx = canvasRef.current?.getContext('2d');
+        if (ctx && canvasRef.current) {
+          const width = Math.floor(canvasRef.current.getBoundingClientRect().width);
+          const height = Math.floor(canvasRef.current.getBoundingClientRect().height);
+          clear(ctx, width, height);
+        }
+        setSelectedPivots([]);
+      }, 1500);
+
+      setPendingPivotSelection(null);
+      setInteractionMode('segment');
 
       if (pivotElement && elementNeedsSpecialInteraction(pivotElement)) {
         const hasConstraint = constraintRelations.some(c => c.bodyName === pivotName);
@@ -691,16 +725,35 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
     console.log('[弹簧系统] 建立弹簧约束:', newConstraint);
     setConstraintRelations(prev => [...prev, newConstraint]);
 
-    setPendingPivotSelection(null);
-    setInteractionMode('segment');
-    setError('');
-
+    // 绘制两个端点标记
     const ctx = canvasRef.current?.getContext('2d');
     if (ctx && canvasRef.current) {
       const width = Math.floor(canvasRef.current.getBoundingClientRect().width);
       const height = Math.floor(canvasRef.current.getBoundingClientRect().height);
       clear(ctx, width, height);
+      
+      // 重绘第一个端点
+      if (selectedPivots.length > 0) {
+        drawPivotMarker(ctx, selectedPivots[0].x, selectedPivots[0].y, 'first');
+      }
+      // 绘制第二个端点
+      drawPivotMarker(ctx, clickPoint.x, clickPoint.y, 'second');
     }
+
+    // 短暂显示标记后清除
+    setTimeout(() => {
+      const ctx = canvasRef.current?.getContext('2d');
+      if (ctx && canvasRef.current) {
+        const width = Math.floor(canvasRef.current.getBoundingClientRect().width);
+        const height = Math.floor(canvasRef.current.getBoundingClientRect().height);
+        clear(ctx, width, height);
+      }
+      setSelectedPivots([]);
+    }, 1500);
+
+    setPendingPivotSelection(null);
+    setInteractionMode('segment');
+    setError('');
   };
 
   const handleMouseUp = async (ev) => {
@@ -918,6 +971,16 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
   // ============================================================================
   const cancelPivotSelection = () => {
     console.log('[约束系统] 用户取消支点选择');
+    
+    // 清除画布上的端点标记
+    const ctx = canvasRef.current?.getContext('2d');
+    if (ctx && canvasRef.current) {
+      const width = Math.floor(canvasRef.current.getBoundingClientRect().width);
+      const height = Math.floor(canvasRef.current.getBoundingClientRect().height);
+      clear(ctx, width, height);
+    }
+    
+    setSelectedPivots([]);
     setPendingPivotSelection(null);
     setInteractionMode('segment');
     setError('');
@@ -1417,14 +1480,15 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         </div>
       </div>
 
-      {/* 统一信息区域 - 画布下方横向布局（包含识别元素、已选择、约束关系、广场动画信息） */}
-      {(recognizedDetailed.length > 0 || assignments.length > 0 || constraintRelations.length > 0 || plazaAnimationInfo) && (
+      {/* 统一信息区域 - 画布下方横向布局（包含识别元素、已选择、约束关系、广场动画信息、端点选择提示） */}
+      {(recognizedDetailed.length > 0 || assignments.length > 0 || constraintRelations.length > 0 || plazaAnimationInfo || 
+        ((interactionMode === 'select_pivot' || interactionMode === 'select_first_endpoint' || interactionMode === 'select_second_endpoint') && pendingPivotSelection)) && (
         <div style={{ 
           marginTop: 12, 
           marginRight: 380,
           padding: '12px 16px',
-          background: '#f9fafb',
-          border: '1px solid #e5e7eb',
+          background: 'linear-gradient(135deg, #ffffff 0%, #fff8e1 100%)',
+          border: '1px solid #000000',
           borderRadius: 12,
           display: 'flex', 
           alignItems: 'center', 
@@ -1432,232 +1496,251 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
           gap: 20,
           flexWrap: 'wrap'
         }}>
-          {/* 左侧：所有信息横向排列在同一行 */}
-          <div style={{ flex: '1 1 auto', minWidth: 280, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-            {/* 识别到的元素 */}
-            {recognizedDetailed && recognizedDetailed.length > 0 && (
-              <>
-                <strong style={{ fontSize: 13, color: '#334' }}>识别到的元素：</strong>
-                {recognizedDetailed.map((elem, idx) => (
-                  <span
-                    key={`${elem.name}-${idx}`}
-                    style={{
-                      display: 'inline-block',
-                      padding: '4px 10px',
-                      borderRadius: 10,
-                      backgroundColor: elem.is_concave ? '#fef3c7' : '#eef',
-                      color: elem.is_concave ? '#92400e' : '#334',
-                      fontSize: 12,
-                      fontWeight: 500
-                    }}
-                  >
-                    {elem.display_name || elem.name}{elem.is_concave ? '（凹面体）' : ''}
-                  </span>
-                ))}
-                {assignments.length === 0 && <span style={{ color: '#9ca3af', fontSize: 11 }}>请在图中框选</span>}
-              </>
-            )}
-
-            {/* 分隔符 */}
-            {recognizedDetailed.length > 0 && assignments.length > 0 && (
-              <span style={{ color: '#d1d5db', fontSize: 16, fontWeight: 300 }}>|</span>
-            )}
-
-            {/* 已分配的元素列表与完成进度 */}
-            {assignments.length > 0 && (
-              <>
-                <strong style={{ fontSize: 13, color: '#334' }}>已选择：</strong>
-                {assignments.map((a, i) => (
-                  <span
-                    key={a.label + i}
-                    style={{
-                      display: 'inline-block',
-                      padding: '4px 10px',
-                      borderRadius: 10,
-                      background: a.is_concave ? '#fef3c7' : (a.element_type === 'pendulum_bob' ? '#dbeafe' : '#e0f2fe'),
-                      color: a.is_concave ? '#92400e' : '#0369a1',
-                      fontSize: 12,
-                      fontWeight: 500
-                    }}
-                  >
-                    {a.label}{a.is_concave ? '（凹面体）' : ''}{a.element_type === 'pendulum_bob' ? '🔗' : ''}
-                  </span>
-                ))}
-                <span style={{ color: '#6b7280', fontSize: 12 }}>完成 {assignments.length}/{recognizedDetailed.length}</span>
-              </>
-            )}
-
-            {/* 分隔符 */}
-            {constraintRelations.length > 0 && (
-              <span style={{ color: '#d1d5db', fontSize: 16, fontWeight: 300 }}>|</span>
-            )}
-
-            {/* 约束关系显示 */}
-            {constraintRelations.length > 0 && (
-              <>
-                <strong style={{ fontSize: 12, color: '#475569' }}>约束关系：</strong>
-                {constraintRelations.map((c, i) => (
-                  <span
-                    key={`constraint-${i}`}
-                    style={{
-                      display: 'inline-block',
-                      padding: '3px 8px',
-                      borderRadius: 8,
-                      background: '#f0fdf4',
-                      color: '#166534',
-                      border: '1px solid #86efac',
-                      fontSize: 11
-                    }}
-                  >
-                    {c.bodyName} → {c.pivotName}
-                  </span>
-                ))}
-              </>
-            )}
-          </div>
-
-          {/* 右侧：广场动画信息（统一卡片样式） */}
-          {plazaAnimationInfo && (
-            <div style={{
-              flex: '0 0 auto',
-              padding: '8px 14px',
-              background: 'white',
-              border: '1px solid #d1d5db',
-              borderRadius: 10,
-              display: 'flex',
-              alignItems: 'center',
+          {/* 端点选择提示 - 优先显示，覆盖其他内容 */}
+          {(interactionMode === 'select_pivot' ||
+            interactionMode === 'select_first_endpoint' ||
+            interactionMode === 'select_second_endpoint') &&
+           pendingPivotSelection ? (
+            <div style={{ 
+              flex: '1 1 100%', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
               gap: 12,
-              flexWrap: 'wrap',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+              padding: '4px 0'
             }}>
-              <span style={{
-                fontSize: 14,
-                fontWeight: 600,
-                color: '#111827'
-              }}>
-                📝 {plazaAnimationInfo.title}
-              </span>
-              
-              <LikeButton 
-                animationId={plazaAnimationInfo.id} 
-                initialLikeCount={plazaAnimationInfo.like_count || 0}
-                size="small"
-              />
-              
-              {plazaAnimationInfo.author_name && (
-                <span style={{
-                  fontSize: 11,
-                  color: '#6b7280',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4
-                }}>
-                  👤 {plazaAnimationInfo.author_name}
-                </span>
-              )}
-              
+              {/* 提示信息 */}
+              <div style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ fontWeight: 600, color: '#1f2937', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 16 }}>📍</span>
+                  {interactionMode === 'select_second_endpoint'
+                    ? pendingPivotSelection.secondPrompt
+                    : pendingPivotSelection.firstPrompt || pendingPivotSelection.pivotPrompt}
+                </div>
+                <div style={{ fontSize: 12, color: '#6b7280' }}>
+                  {interactionMode === 'select_second_endpoint' ? (
+                    <>第一个端点已选择：<strong>{pendingPivotSelection.firstPoint?.bodyName}</strong>，现在选择第二个端点</>
+                  ) : (
+                    <>点击图片上的位置选择端点，或点击已分割的元素区域</>
+                  )}
+                  {pendingPivotSelection.element.constraints?.suggested_pivot && interactionMode !== 'select_second_endpoint' && (
+                    <span style={{ color: '#059669', marginLeft: 4 }}>
+                      （建议：{pendingPivotSelection.element.constraints.suggested_pivot}）
+                    </span>
+                  )}
+                </div>
+              </div>
+              {/* 跳过按钮 */}
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowShareModal(true);
+                className="start-btn"
+                style={{ 
+                  backgroundColor: '#f3f4f6', 
+                  borderColor: '#d1d5db', 
+                  color: '#6b7280',
+                  fontSize: 12, 
+                  padding: '6px 14px',
+                  flexShrink: 0
                 }}
-                style={{
-                  padding: '5px 10px',
-                  borderRadius: 6,
-                  border: '1px solid #d1d5db',
-                  background: 'white',
-                  color: '#16a34a',
-                  fontSize: 12,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  fontWeight: 500
-                }}
+                onClick={cancelPivotSelection}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#f0fdf4';
-                  e.currentTarget.style.borderColor = '#16a34a';
+                  e.currentTarget.style.backgroundColor = '#e5e7eb';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'white';
-                  e.currentTarget.style.borderColor = '#d1d5db';
+                  e.currentTarget.style.backgroundColor = '#f3f4f6';
                 }}
               >
-                🔗 分享
-              </button>
-
-              <button
-                onClick={onClosePlazaInfo}
-                style={{
-                  width: 20,
-                  height: 20,
-                  borderRadius: 10,
-                  border: '1px solid #d1d5db',
-                  background: 'white',
-                  color: '#6b7280',
-                  fontSize: 16,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: 0,
-                  flexShrink: 0,
-                  lineHeight: 1
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#fee2e2';
-                  e.currentTarget.style.color = '#dc2626';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'white';
-                  e.currentTarget.style.color = '#6b7280';
-                }}
-              >
-                ×
+                跳过选择
               </button>
             </div>
-          )}
-        </div>
-      )}
+          ) : (
+            <>
+              {/* 左侧：所有信息横向排列在同一行 */}
+              <div style={{ flex: '1 1 auto', minWidth: 280, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                {/* 识别到的元素 */}
+                {recognizedDetailed && recognizedDetailed.length > 0 && (
+                  <>
+                    <strong style={{ fontSize: 13, color: '#334' }}>识别到的元素：</strong>
+                    {recognizedDetailed.map((elem, idx) => (
+                      <span
+                        key={`${elem.name}-${idx}`}
+                        style={{
+                          display: 'inline-block',
+                          padding: '4px 10px',
+                          borderRadius: 10,
+                          backgroundColor: elem.is_concave ? '#fef3c7' : '#eef',
+                          color: elem.is_concave ? '#92400e' : '#334',
+                          fontSize: 12,
+                          fontWeight: 500
+                        }}
+                      >
+                        {elem.display_name || elem.name}{elem.is_concave ? '（凹面体）' : ''}
+                      </span>
+                    ))}
+                    {assignments.length === 0 && <span style={{ color: '#9ca3af', fontSize: 11 }}>请在图中框选</span>}
+                  </>
+                )}
 
-      {/* ================================================================== */}
-      {/* 端点选择提示面板（2025-11-25更新：支持弹簧的两次选择）               */}
-      {/* ================================================================== */}
-      {(interactionMode === 'select_pivot' ||
-        interactionMode === 'select_first_endpoint' ||
-        interactionMode === 'select_second_endpoint') &&
-       pendingPivotSelection && (
-        <div style={{
-          marginTop: 8,
-          padding: '10px 12px',
-          border: '2px solid #3b82f6',
-          borderRadius: 12,
-          backgroundColor: '#eff6ff',
-        }}>
-          <div style={{ fontWeight: 'bold', color: '#1d4ed8', marginBottom: 6 }}>
-            📍 {interactionMode === 'select_second_endpoint'
-                  ? pendingPivotSelection.secondPrompt
-                  : pendingPivotSelection.firstPrompt || pendingPivotSelection.pivotPrompt}
-          </div>
-          <div style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>
-            {interactionMode === 'select_second_endpoint' ? (
-              <>第一个端点已选择：{pendingPivotSelection.firstPoint?.bodyName}，现在选择第二个端点</>
-            ) : (
-              <>点击图片上的位置选择端点，或点击已分割的元素区域</>
-            )}
-            {pendingPivotSelection.element.constraints?.suggested_pivot && interactionMode !== 'select_second_endpoint' && (
-              <span style={{ color: '#059669' }}>
-                （建议：{pendingPivotSelection.element.constraints.suggested_pivot}）
-              </span>
-            )}
-          </div>
-          <button
-            className="start-btn"
-            style={{ backgroundColor: '#94a3b8', borderColor: '#64748b', fontSize: 12, padding: '4px 10px' }}
-            onClick={cancelPivotSelection}
-          >
-            跳过选择
-          </button>
+                {/* 分隔符 */}
+                {recognizedDetailed.length > 0 && assignments.length > 0 && (
+                  <span style={{ color: '#d1d5db', fontSize: 16, fontWeight: 300 }}>|</span>
+                )}
+
+                {/* 已分配的元素列表与完成进度 */}
+                {assignments.length > 0 && (
+                  <>
+                    <strong style={{ fontSize: 13, color: '#334' }}>已选择：</strong>
+                    {assignments.map((a, i) => (
+                      <span
+                        key={a.label + i}
+                        style={{
+                          display: 'inline-block',
+                          padding: '4px 10px',
+                          borderRadius: 10,
+                          background: a.is_concave ? '#fef3c7' : (a.element_type === 'pendulum_bob' ? '#dbeafe' : '#e0f2fe'),
+                          color: a.is_concave ? '#92400e' : '#0369a1',
+                          fontSize: 12,
+                          fontWeight: 500
+                        }}
+                      >
+                        {a.label}{a.is_concave ? '（凹面体）' : ''}{a.element_type === 'pendulum_bob' ? '🔗' : ''}
+                      </span>
+                    ))}
+                    <span style={{ color: '#6b7280', fontSize: 12 }}>完成 {assignments.length}/{recognizedDetailed.length}</span>
+                  </>
+                )}
+
+                {/* 分隔符 */}
+                {constraintRelations.length > 0 && (
+                  <span style={{ color: '#d1d5db', fontSize: 16, fontWeight: 300 }}>|</span>
+                )}
+
+                {/* 约束关系显示 */}
+                {constraintRelations.length > 0 && (
+                  <>
+                    <strong style={{ fontSize: 12, color: '#475569' }}>约束关系：</strong>
+                    {constraintRelations.map((c, i) => (
+                      <span
+                        key={`constraint-${i}`}
+                        style={{
+                          display: 'inline-block',
+                          padding: '3px 8px',
+                          borderRadius: 8,
+                          background: '#f0fdf4',
+                          color: '#166534',
+                          border: '1px solid #86efac',
+                          fontSize: 11
+                        }}
+                      >
+                        {c.bodyName} → {c.pivotName}
+                      </span>
+                    ))}
+                  </>
+                )}
+              </div>
+
+              {/* 右侧：广场动画信息（统一卡片样式） */}
+              {plazaAnimationInfo && (
+                <div style={{
+                  flex: '0 0 auto',
+                  padding: '8px 14px',
+                  background: 'white',
+                  border: '1px solid #d1d5db',
+                  borderRadius: 10,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  flexWrap: 'wrap',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                }}>
+                  <span style={{
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: '#111827'
+                  }}>
+                    📝 {plazaAnimationInfo.title}
+                  </span>
+                  
+                  <LikeButton 
+                    animationId={plazaAnimationInfo.id} 
+                    initialLikeCount={plazaAnimationInfo.like_count || 0}
+                    size="small"
+                  />
+                  
+                  {plazaAnimationInfo.author_name && (
+                    <span style={{
+                      fontSize: 11,
+                      color: '#6b7280',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4
+                    }}>
+                      👤 {plazaAnimationInfo.author_name}
+                    </span>
+                  )}
+                  
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowShareModal(true);
+                    }}
+                    style={{
+                      padding: '5px 10px',
+                      borderRadius: 6,
+                      border: '1px solid #d1d5db',
+                      background: 'white',
+                      color: '#16a34a',
+                      fontSize: 12,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      fontWeight: 500
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#f0fdf4';
+                      e.currentTarget.style.borderColor = '#16a34a';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'white';
+                      e.currentTarget.style.borderColor = '#d1d5db';
+                    }}
+                  >
+                    🔗 分享
+                  </button>
+
+                  <button
+                    onClick={onClosePlazaInfo}
+                    style={{
+                      width: 20,
+                      height: 20,
+                      borderRadius: 10,
+                      border: '1px solid #d1d5db',
+                      background: 'white',
+                      color: '#6b7280',
+                      fontSize: 16,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: 0,
+                      flexShrink: 0,
+                      lineHeight: 1
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#fee2e2';
+                      e.currentTarget.style.color = '#dc2626';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'white';
+                      e.currentTarget.style.color = '#6b7280';
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
 

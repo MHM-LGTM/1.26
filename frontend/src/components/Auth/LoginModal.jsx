@@ -73,6 +73,7 @@ export default function LoginModal({ isOpen, onClose }) {
   const handleSendCode = async () => {
     if (!validatePhone(phoneNumber)) {
       setError('请输入正确的手机号');
+      toast.error('请输入正确的手机号');
       return;
     }
 
@@ -91,12 +92,15 @@ export default function LoginModal({ isOpen, onClose }) {
         toast.success('验证码已发送，请注意查收');
         setCodeCountdown(60); // 60秒倒计时
       } else {
-        setError(res.message || '发送验证码失败');
+        const errorMsg = res.message || '发送验证码失败';
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
     } catch (err) {
       const errorDetail = err.response?.data?.detail;
       const errorMessage = extractErrorMessage(errorDetail);
       setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setSendingCode(false);
     }

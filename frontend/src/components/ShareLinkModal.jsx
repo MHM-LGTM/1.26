@@ -191,14 +191,24 @@ export default function ShareLinkModal({ isOpen, onClose, animationId, existingS
                 width: '100%',
                 padding: '12px',
                 border: '1px solid #000000',
-                background: copied ? '#10b981' : 'linear-gradient(135deg, #ffffff 0%, #fffef8 100%)',
-                color: copied ? 'white' : '#222',
+                background: copied ? 'linear-gradient(135deg, #ffd93d 0%, #ffcc80 100%)' : 'linear-gradient(135deg, #ffffff 0%, #fffef8 100%)',
+                color: copied ? '#222' : '#222',
                 borderRadius: 8,
                 cursor: 'pointer',
                 fontSize: 14,
                 fontWeight: 500,
                 marginBottom: 16,
                 transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                if (!copied) {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!copied) {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #ffffff 0%, #fffef8 100%)';
+                }
               }}
             >
               {copied ? '✅ 已复制' : '📋 复制链接'}

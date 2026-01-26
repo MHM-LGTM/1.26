@@ -45,3 +45,66 @@ export function drawDragRect(ctx, x1, y1, x2, y2) {
   ctx.strokeRect(x1, y1, w, h);
   ctx.restore();
 }
+
+/**
+ * 绘制端点选择标记
+ * @param {CanvasRenderingContext2D} ctx - Canvas 上下文
+ * @param {number} x - 端点 X 坐标
+ * @param {number} y - 端点 Y 坐标
+ * @param {string} type - 端点类型: 'first' | 'second'
+ */
+export function drawPivotMarker(ctx, x, y, type = 'first') {
+  if (!ctx) return;
+  
+  ctx.save();
+  
+  // 根据类型选择颜色
+  const colors = {
+    first: {
+      outer: '#10b981',      // 绿色外圈
+      inner: '#34d399',      // 浅绿色内圈
+      center: '#ffffff',     // 白色中心点
+      shadow: '#6ee7b7'      // 阴影颜色
+    },
+    second: {
+      outer: '#f59e0b',      // 橙色外圈
+      inner: '#fbbf24',      // 浅橙色内圈
+      center: '#ffffff',     // 白色中心点
+      shadow: '#fcd34d'      // 阴影颜色
+    }
+  };
+  
+  const color = colors[type] || colors.first;
+  
+  // 绘制阴影效果
+  ctx.shadowColor = color.shadow;
+  ctx.shadowBlur = 12;
+  
+  // 绘制外圈
+  ctx.beginPath();
+  ctx.arc(x, y, 12, 0, Math.PI * 2);
+  ctx.fillStyle = color.outer;
+  ctx.fill();
+  
+  // 绘制内圈
+  ctx.beginPath();
+  ctx.arc(x, y, 8, 0, Math.PI * 2);
+  ctx.fillStyle = color.inner;
+  ctx.fill();
+  
+  // 绘制中心点
+  ctx.shadowBlur = 0;
+  ctx.beginPath();
+  ctx.arc(x, y, 3, 0, Math.PI * 2);
+  ctx.fillStyle = color.center;
+  ctx.fill();
+  
+  // 绘制外圈边框
+  ctx.beginPath();
+  ctx.arc(x, y, 12, 0, Math.PI * 2);
+  ctx.strokeStyle = color.outer;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  
+  ctx.restore();
+}

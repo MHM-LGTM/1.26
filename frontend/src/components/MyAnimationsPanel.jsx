@@ -589,7 +589,7 @@ export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
               alignItems: 'center',
               gap: 8
             }}
-            onMouseEnter={(e) => e.currentTarget.style.background = '#fffbf0'}
+            onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
           >
             删除
@@ -674,7 +674,7 @@ export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
               alignItems: 'center',
               gap: 8
             }}
-            onMouseEnter={(e) => e.currentTarget.style.background = '#fffbf0'}
+            onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
           >
             分享链接
