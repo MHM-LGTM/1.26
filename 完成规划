@@ -1,0 +1,24 @@
+1.完成图片存储加图片压缩
+项目中图片存储的全貌
+当前使用 base64 存储的地方：
+thumbnail_url （动画封面图）
+位置：animations 表
+当前定义：Column(Text)
+实际问题：数据库实际创建时可能是 VARCHAR(限制长度)
+scene_data.imagePreview （场景背景图）
+位置：animations 表的 JSON 字段中
+类型：Column(JSON)
+大小：可以存 1MB+ 的 base64 图片
+scene_data.originalImageUrl （原始上传图片）
+位置：同上，JSON 字段中
+用途：作为封面优先选项
+scene_data.objects[].sprite_data_url （每个物体的精灵图）
+位置：同上，JSON 字段中
+数量：可能有多个物体，每个都有精灵图
+已经使用文件存储的地方：✅
+反馈图片 - 已经是文件路径（feedback.images）
+
+
+
+
+

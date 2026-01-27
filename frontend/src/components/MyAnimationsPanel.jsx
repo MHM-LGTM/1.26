@@ -32,6 +32,7 @@ export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
   // 加载我的动画列表
   const loadAnimations = async () => {
     if (!token) {
+      setAnimations([]); // 退出登录时清空动画列表
       setLoading(false);
       return;
     }
