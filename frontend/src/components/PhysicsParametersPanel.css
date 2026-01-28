@@ -1,0 +1,308 @@
+/**
+ * 物理参数调节面板样式
+ * 设计风格与主界面保持一致
+ */
+
+.physics-params-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, #ffffff 0%, #fffef8 100%);
+  padding: 16px;
+  overflow-y: auto;
+}
+
+/* 空状态 */
+.params-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #666;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.empty-text {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: #444;
+}
+
+.empty-hint {
+  font-size: 12px;
+  color: #999;
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* 头部 */
+.params-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #000000;
+}
+
+.params-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #666;
+  line-height: 1.5;
+  flex: 1;
+}
+
+.params-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 1px solid #f59e0b;
+  border-radius: 12px;
+  font-size: 11px;
+  color: #92400e;
+  font-weight: 500;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  background: #f59e0b;
+  border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* 物体选择器 */
+.object-selector {
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+.selector-label {
+  display: block;
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.object-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.object-tab {
+  padding: 6px 12px;
+  border: 1px solid #000000;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #ffffff 0%, #fffef8 100%);
+  color: #222;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.object-tab:hover {
+  background: linear-gradient(135deg, #fff8e1 0%, #ffeaa7 100%);
+  box-shadow: 0 2px 6px rgba(255, 152, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+.object-tab.active {
+  background: linear-gradient(135deg, #ffeaa7 0%, #ffcc80 100%);
+  border-color: #ff9800;
+  box-shadow: 0 3px 8px rgba(255, 152, 0, 0.25);
+}
+
+.type-badge {
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 6px;
+  font-size: 10px;
+  color: #666;
+  white-space: nowrap;
+}
+
+/* 参数内容区域 */
+.params-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* 参数分组 */
+.param-section {
+  margin-bottom: 20px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid #ffd93d;
+  border-radius: 12px;
+}
+
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #444;
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #ffe680;
+}
+
+/* 单个参数项 */
+.param-item {
+  margin-bottom: 16px;
+}
+
+.param-item:last-child {
+  margin-bottom: 0;
+}
+
+.param-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.param-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #444;
+}
+
+.param-value-input {
+  width: 70px;
+  padding: 4px 8px;
+  border: 1px solid #000000;
+  border-radius: 6px;
+  background: white;
+  color: #222;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: right;
+  transition: all 0.2s;
+}
+
+.param-value-input:focus {
+  outline: none;
+  border-color: #ff9800;
+  box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.1);
+}
+
+/* 滑块样式 */
+.param-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #fff8e1 0%, #ffeaa7 100%);
+  outline: none;
+  -webkit-appearance: none;
+  margin-bottom: 6px;
+}
+
+.param-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffffff 0%, #ffeaa7 100%);
+  border: 2px solid #000000;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.param-slider::-webkit-slider-thumb:hover {
+  background: linear-gradient(135deg, #ffeaa7 0%, #ffcc80 100%);
+  box-shadow: 0 3px 8px rgba(255, 152, 0, 0.3);
+  transform: scale(1.1);
+}
+
+.param-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffffff 0%, #ffeaa7 100%);
+  border: 2px solid #000000;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.param-slider::-moz-range-thumb:hover {
+  background: linear-gradient(135deg, #ffeaa7 0%, #ffcc80 100%);
+  box-shadow: 0 3px 8px rgba(255, 152, 0, 0.3);
+  transform: scale(1.1);
+}
+
+.param-hint {
+  font-size: 11px;
+  color: #999;
+  line-height: 1.4;
+}
+
+/* 底部提示 */
+.params-footer {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #ffd93d;
+}
+
+.footer-hint {
+  font-size: 11px;
+  color: #666;
+  line-height: 1.6;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, #fffef8 0%, #fff8e1 100%);
+  border: 1px solid #ffe680;
+  border-radius: 8px;
+  word-wrap: break-word;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* 滚动条样式 */
+.physics-params-panel::-webkit-scrollbar,
+.params-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.physics-params-panel::-webkit-scrollbar-track,
+.params-content::-webkit-scrollbar-track {
+  background: rgba(255, 249, 219, 0.3);
+  border-radius: 3px;
+}
+
+.physics-params-panel::-webkit-scrollbar-thumb,
+.params-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 152, 0, 0.3);
+  border-radius: 3px;
+}
+
+.physics-params-panel::-webkit-scrollbar-thumb:hover,
+.params-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 152, 0, 0.5);
+}

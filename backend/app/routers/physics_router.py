@@ -137,14 +137,20 @@ def _normalize_elements(full: Dict[str, object] | None) -> List[Dict[str, object
         # 传送带类型规整与速度参数透传
         name_lower = str(base_name).lower()
         desc_lower = str(visual_description).lower()
+        # ========================================================================
+        # 【2026-01-28 优化】严格判断传送带，避免误识别
+        # 只有以下情况才识别为传送带：
+        # 1. element_type 明确为 "conveyor_belt"
+        # 2. 名称/描述中包含完整的传送带关键词（避免 "belt" 这种过于宽泛的词）
+        # ========================================================================
         is_conveyor = (
             element_type == "conveyor_belt"
             or ("传送带" in base_name)
             or ("传送带" in visual_description)
-            or ("conveyor" in name_lower)
-            or ("conveyor" in desc_lower)
-            or ("belt" in name_lower)
-            or ("belt" in desc_lower)
+            or ("conveyor" in name_lower and "belt" in name_lower)  # 要求同时包含
+            or ("conveyor" in desc_lower and "belt" in desc_lower)  # 要求同时包含
+            or ("输送带" in base_name)
+            or ("输送带" in visual_description)
         )
         if is_conveyor:
             element_type = "conveyor_belt"
@@ -161,10 +167,12 @@ def _normalize_elements(full: Dict[str, object] | None) -> List[Dict[str, object
                         break
                     except Exception:
                         pass
-            if sp is not None:
+            # ====================================================================
+            # 【2026-01-28 修复】只有找到有效速度值时才设置 conveyor_speed
+            # 避免给所有物体都添加 conveyor_speed: 0.0，导致前端误判
+            # ====================================================================
+            if sp is not None and sp != 0:
                 params["conveyor_speed"] = sp
-            else:
-                params.setdefault("conveyor_speed", 0.0)
 
         normalized.append({
             "id": f"{base_name}-{i}",

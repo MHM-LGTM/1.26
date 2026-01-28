@@ -53,6 +53,7 @@ import ErrorToast from './ErrorToast.jsx';
 import SaveAnimationModal from './SaveAnimationModal.jsx';
 import LikeButton from './LikeButton.jsx';
 import ShareLinkModal from './ShareLinkModal.jsx';
+import PhysicsParametersPanel from './PhysicsParametersPanel.jsx';
 import useAuthStore from '../store/authStore';
 import { drawContour, clear, drawDragRect, drawPivotMarker } from '../utils/drawMask.js';
 import { runSimulation } from '../utils/physicsEngine.js';
@@ -215,6 +216,37 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
   
   // 记录已选择的端点位置（用于绘制视觉反馈）
   const [selectedPivots, setSelectedPivots] = useState([]);
+
+  // ============================================================================
+  // 参数调节相关（2026-01-28 新增）
+  // ============================================================================
+  
+  // 处理参数变化
+  const handleParametersChange = (objectIndex, newParams) => {
+    console.log('[PhysicsInputBox] 参数变化:', objectIndex, newParams);
+    
+    // 更新 assignments 中的参数
+    setAssignments(prev => {
+      const updated = [...prev];
+      if (updated[objectIndex]) {
+        updated[objectIndex] = {
+          ...updated[objectIndex],
+          parameters: {
+            ...updated[objectIndex].parameters,
+            ...newParams
+          }
+        };
+      }
+      return updated;
+    });
+    
+    // ========================================================================
+    // 【2026-01-28 优化】不清空缓存，保留精灵图数据
+    // 参数变化不影响视觉外观（精灵图），只影响物理行为
+    // 重置时会使用缓存的精灵图 + 最新的参数（assignments）
+    // ========================================================================
+    console.log('[PhysicsInputBox] 参数已更新，点击重置后生效');
+  };
 
   const uploadRef = useRef(null);
   const canvasRef = useRef(null);
@@ -1046,7 +1078,11 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         runningSimulation.current = null;
       }
       
-      // 2. 重新创建冻结的刚体（使用缓存的数据）
+      // 2. 重新创建冻结的刚体
+      // ========================================================================
+      // 【2026-01-28 更新】支持参数动态调整
+      // 使用缓存的精灵图（视觉不变）+ 最新的参数（assignments）
+      // ========================================================================
       if (simulationCache.current && simulationCache.current.data) {
         const cachedData = simulationCache.current.data;
         const serverObjects = cachedData.objects || [];
@@ -1055,10 +1091,14 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         const parameters_list = assignments.map((a) => a.parameters || {});
         const is_concave_list = assignments.map((a) => a.is_concave || false);
         
+        // ======================================================================
+        // 【关键】合并缓存的精灵图数据 + assignments 中的最新参数
+        // 这样参数调整不需要重新调用后端，只需要重新创建物理刚体
+        // ======================================================================
         const objects = serverObjects.map((o, idx) => ({
           name: elements_simple[idx] || o?.name || `elem-${idx}`,
           role: o?.role ?? roles[idx] ?? 'unknown',
-          parameters: { ...(o?.parameters || {}), ...(parameters_list[idx] || {}) },
+          parameters: parameters_list[idx] || {},  // 使用 assignments 中的最新参数
           contour: (o?.contour || assignments[idx].contour || []),
           sprite_data_url: o?.sprite_data_url || null,
           is_concave: is_concave_list[idx] || false,
@@ -1081,7 +1121,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
               frozen: true  // 冻结状态
             });
             runningSimulation.current = sim;
-            console.log('[PhysicsInputBox] 已重置到初始冻结状态');
+            console.log('[PhysicsInputBox] 已重置到初始冻结状态（应用最新参数）');
           }
         }, 50);
       }
@@ -1464,19 +1504,11 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
           )}
         </div>
         <div className="upload-split-right">
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-            padding: '20px',
-            textAlign: 'center',
-            color: '#999',
-            fontSize: '14px',
-            lineHeight: '1.6'
-          }}>
-            自定义动画功能暂未开放
-          </div>
+          <PhysicsParametersPanel
+            objects={assignments}
+            onParametersChange={handleParametersChange}
+            isSimulationRunning={isSimulationRunning}
+          />
         </div>
       </div>
 
