@@ -54,7 +54,7 @@ body {
 
 .upload-area {
   position: relative;
-  height: 382px;
+  height: 520px;
   max-width: calc(101.5vw - 450px); /* 为右侧"我的动画"面板留出更多空间 */
   border-radius: 28px;
   border: 1px solid #000000;

@@ -36,6 +36,98 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
   const token = useAuthStore((state) => state.token);
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
 
+  // 辅助函数：将 data URL 转换为 Blob
+  const dataURLtoBlob = (dataURL) => {
+    const arr = dataURL.split(',');
+    const mime = arr[0].match(/:(.*?);/)[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+  };
+
+  // 辅助函数：获取可显示的图片 URL
+  const getDisplayableImageUrl = (imageUrl) => {
+    if (!imageUrl) return null;
+    
+    // 如果是 data URL，直接返回
+    if (imageUrl.startsWith('data:')) {
+      return imageUrl;
+    }
+    
+    // 如果已经是完整 URL（http:// 或 https://），直接返回
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      return imageUrl;
+    }
+    
+    // 如果是相对路径，加上 API_BASE_URL
+    return `${API_BASE_URL}${imageUrl}`;
+  };
+
+  // 辅助函数：上传图片到服务器
+  const uploadImageToServer = async (imageUrl) => {
+    // 如果是空值，直接返回
+    if (!imageUrl) {
+      return imageUrl;
+    }
+    
+    // 如果不是 data URL，可能是路径或完整 URL
+    if (!imageUrl.startsWith('data:')) {
+      // 如果是完整 URL（包含 API_BASE_URL），提取相对路径
+      if (imageUrl.startsWith(API_BASE_URL)) {
+        const relativePath = imageUrl.replace(API_BASE_URL, '');
+        console.log('[SaveAnimationModal] 转换完整URL为相对路径:', imageUrl, '->', relativePath);
+        return relativePath;
+      }
+      // 如果是其他完整 URL（http:// 或 https://），也尝试提取相对路径
+      if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+        try {
+          const url = new URL(imageUrl);
+          const relativePath = url.pathname;
+          console.log('[SaveAnimationModal] 从URL提取相对路径:', imageUrl, '->', relativePath);
+          return relativePath;
+        } catch (e) {
+          console.warn('[SaveAnimationModal] 无法解析URL，直接返回:', imageUrl);
+          return imageUrl;
+        }
+      }
+      // 已经是相对路径，直接返回
+      return imageUrl;
+    }
+
+    try {
+      // 将 data URL 转换为 Blob
+      const blob = dataURLtoBlob(imageUrl);
+      
+      // 创建 FormData
+      const formData = new FormData();
+      formData.append('file', blob, 'animation-image.png');
+
+      // 上传图片
+      const response = await fetch(`${API_BASE_URL}/api/animations/upload-image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+      
+      if (data.code === 0) {
+        return data.data.path; // 返回服务器上的相对路径
+      } else {
+        throw new Error(data.message || '图片上传失败');
+      }
+    } catch (error) {
+      console.error('上传图片失败:', error);
+      throw error;
+    }
+  };
+
   const handleSave = async () => {
     // 检查登录状态
     if (!isLoggedIn || !token) {
@@ -70,10 +162,33 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
       
       // 优先使用原始上传的图片作为封面，避免OpenCV裁剪导致的元素残缺
       // 如果没有原始图片，则回退到处理后的图片
-      const thumbnailUrl = currentSceneData?.originalImageUrl || currentSceneData?.imagePreview || null;
+      const originalThumbnailUrl = currentSceneData?.originalImageUrl || currentSceneData?.imagePreview || null;
+      const originalImagePreview = currentSceneData?.imagePreview || null;
       
-      console.log('[SaveAnimationModal] 封面图URL:', thumbnailUrl ? '存在（使用原始上传图片）' : '不存在');
+      console.log('[SaveAnimationModal] 开始上传图片...');
       
+      // 1. 先上传封面图（如果是 data URL）
+      let thumbnailPath = null;
+      if (originalThumbnailUrl) {
+        thumbnailPath = await uploadImageToServer(originalThumbnailUrl);
+        console.log('[SaveAnimationModal] 封面图上传完成:', thumbnailPath);
+      }
+      
+      // 2. 上传背景图（如果是 data URL，且与封面不同）
+      let imagePreviewPath = thumbnailPath; // 默认使用封面图路径
+      if (originalImagePreview && originalImagePreview !== originalThumbnailUrl) {
+        imagePreviewPath = await uploadImageToServer(originalImagePreview);
+        console.log('[SaveAnimationModal] 背景图上传完成:', imagePreviewPath);
+      }
+      
+      // 3. 构建新的 scene_data，使用文件路径替换 data URL
+      const updatedSceneData = {
+        ...currentSceneData,
+        imagePreview: imagePreviewPath // 使用文件路径
+      };
+      
+      // 4. 保存动画到数据库
+      console.log('[SaveAnimationModal] 保存动画到数据库...');
       const response = await fetch(`${API_BASE_URL}/api/animations`, {
         method: 'POST',
         headers: {
@@ -83,8 +198,8 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
         body: JSON.stringify({
           title: title.trim(),
           description: description.trim() || null,
-          thumbnail_url: thumbnailUrl,
-          scene_data: currentSceneData || {}
+          thumbnail_url: thumbnailPath, // 使用文件路径
+          scene_data: updatedSceneData
         })
       });
       
@@ -364,7 +479,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
         {(getCurrentSceneData()?.originalImageUrl || getCurrentSceneData()?.imagePreview) && (
           <div style={{ marginBottom: 16, textAlign: 'center' }}>
             <img 
-              src={getCurrentSceneData()?.originalImageUrl || getCurrentSceneData()?.imagePreview} 
+              src={getDisplayableImageUrl(getCurrentSceneData()?.originalImageUrl || getCurrentSceneData()?.imagePreview)} 
               alt="封面预览"
               style={{
                 maxWidth: '100%',
@@ -372,6 +487,10 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
                 borderRadius: 8,
                 border: '2px solid #ffd93d',
                 objectFit: 'contain'
+              }}
+              onError={(e) => {
+                console.error('[SaveAnimationModal] 封面图片加载失败:', e.target.src);
+                e.target.style.display = 'none';
               }}
             />
             <p style={{ 

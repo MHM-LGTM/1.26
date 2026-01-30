@@ -25,6 +25,7 @@ from ..services.sms_service import get_sms_service
 from ..services.verification_service import get_verification_service
 from ..config.database import get_db
 from ..models.response_schema import ApiResponse
+from ..utils.phone_utils import validate_phone_number, mask_phone_number
 
 router = APIRouter()
 
@@ -63,49 +64,23 @@ class UserResponse(BaseModel):
 
 
 # ============================================================================
-# 工具函数
+# 认证依赖函数
 # ============================================================================
 
-def validate_phone_number(phone: str) -> bool:
-    """
-    校验中国大陆手机号格式
-    
-    Args:
-        phone: 手机号字符串
-        
-    Returns:
-        是否符合格式
-    """
-    pattern = r'^1[3-9]\d{9}$'
-    return bool(re.match(pattern, phone))
-
-
-def mask_phone_number(phone: str) -> str:
-    """
-    脱敏手机号：138****8888
-    
-    Args:
-        phone: 原始手机号
-        
-    Returns:
-        脱敏后的手机号
-    """
-    if len(phone) == 11:
-        return f"{phone[:3]}****{phone[7:]}"
-    return phone
-
-
-async def get_current_user(
+async def get_current_user_optional(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ) -> User | None:
     """
-    依赖注入：获取当前登录用户
+    依赖注入：获取当前登录用户（可选认证）
     
     用法：
-    @router.get("/protected")
-    async def protected(current_user: User = Depends(get_current_user)):
-        ...
+    @router.get("/optional-protected")
+    async def optional_protected(current_user: User = Depends(get_current_user_optional)):
+        if current_user:
+            # 已登录用户逻辑
+        else:
+            # 未登录用户逻辑
     
     Args:
         token: JWT Token
@@ -314,7 +289,7 @@ async def login(
 
 
 @router.get("/me", response_model=ApiResponse)
-async def get_me(current_user: User = Depends(get_current_user)):
+async def get_me(current_user: User = Depends(get_current_user_optional)):
     """
     获取当前用户信息
     

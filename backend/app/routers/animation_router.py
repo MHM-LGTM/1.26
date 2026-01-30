@@ -14,14 +14,17 @@
 - 在 main.py 中通过 app.include_router 挂载
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
+from sqlalchemy.orm import selectinload
 from typing import List
 import random
 import string
+import os
 
 from ..config.database import get_db
+from ..config.settings import FRONTEND_BASE_URL
 from ..models.user import User
 from ..models.animation import Animation, AnimationLike
 from ..models.animation_schema import (
@@ -33,9 +36,59 @@ from ..models.animation_schema import (
 from ..models.response_schema import ApiResponse
 from ..services.auth_service import get_current_user
 from ..utils.logger import log
+from ..utils.phone_utils import mask_phone_number
+from ..utils.file_utils import save_upload_file, delete_upload_file
 
 
 router = APIRouter()
+
+
+@router.post("/animations/upload-image", response_model=ApiResponse)
+async def upload_animation_image(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    上传动画图片（封面或背景图）
+    
+    参数：
+    - file: 图片文件（支持 jpg, jpeg, png, gif, webp）
+    
+    返回：
+    - path: 图片的相对路径（用于前端访问，如：/uploads/animations/uuid_file.png）
+    
+    限制：
+    - 文件大小：最大 10MB
+    - 文件类型：图片格式
+    """
+    try:
+        # 验证文件类型
+        if not file.content_type or not file.content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail="仅支持图片文件")
+        
+        # 验证文件大小（10MB）
+        content = await file.read()
+        if len(content) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="图片大小不能超过 10MB")
+        
+        # 重置文件指针
+        await file.seek(0)
+        
+        # 保存文件
+        abs_path, relative_path = await save_upload_file(file, "animations")
+        
+        log.info(f"用户 {current_user.id} 上传动画图片: {relative_path}")
+        
+        return ApiResponse.ok({
+            "path": relative_path,
+            "message": "图片上传成功"
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"上传动画图片失败: {e}")
+        raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}")
 
 
 @router.post("/animations", response_model=ApiResponse)
@@ -50,9 +103,9 @@ async def create_animation(
     参数：
     - title: 动画名称（必填，1-100字符）
     - description: 动画描述（可选，最多500字符）
-    - thumbnail_url: 封面图URL（可选，通常是 data URL）
+    - thumbnail_url: 封面图路径（可选，相对路径如 /uploads/animations/xxx.png）
     - scene_data: 场景数据（必填，JSON对象）
-      - imagePreview: 背景图的 data URL
+      - imagePreview: 背景图路径（相对路径，而非 data URL）
       - imageNaturalSize: 图片原始尺寸 {w, h}
       - objects: 物体数据数组
       - constraints: 约束关系数组
@@ -60,6 +113,12 @@ async def create_animation(
     返回：
     - id: 新创建的动画ID
     - message: 成功消息
+    
+    图片存储逻辑：
+    - 图片文件存储在服务器磁盘（backend/uploads/animations/）
+    - 数据库中以相对路径（如 /uploads/animations/uuid_file.png）格式存储
+    - 前端需先通过 /api/animations/upload-image 上传图片获取路径，再保存动画
+    - 删除动画时会自动清理关联的磁盘文件
     """
     try:
         # 创建动画记录
@@ -188,7 +247,7 @@ async def delete_animation(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    删除动画
+    删除动画（同时删除关联的图片文件）
     
     参数：
     - animation_id: 动画ID
@@ -209,11 +268,33 @@ async def delete_animation(
         if not animation:
             return ApiResponse.error(404, "动画不存在或无权删除")
         
-        # 删除动画
-        await db.delete(animation)
+        # 收集需要删除的图片路径
+        files_to_delete = []
+        
+        # 1. 封面图
+        if animation.thumbnail_url and not animation.thumbnail_url.startswith('data:'):
+            files_to_delete.append(animation.thumbnail_url)
+        
+        # 2. 背景图（从 scene_data 中提取）
+        if animation.scene_data and isinstance(animation.scene_data, dict):
+            image_preview = animation.scene_data.get('imagePreview')
+            if image_preview and not image_preview.startswith('data:'):
+                # 避免重复删除（如果封面和背景是同一个文件）
+                if image_preview not in files_to_delete:
+                    files_to_delete.append(image_preview)
+        
+        # 先删除数据库记录
+        delete_stmt = delete(Animation).where(Animation.id == animation_id)
+        await db.execute(delete_stmt)
         await db.commit()
         
-        log.info(f"用户 {current_user.id} 删除动画：{animation_id}")
+        # 再删除文件（即使删除失败也不影响数据库操作）
+        deleted_files = []
+        for file_path in files_to_delete:
+            if delete_upload_file(file_path):
+                deleted_files.append(file_path)
+        
+        log.info(f"用户 {current_user.id} 删除动画：{animation_id}，清理文件：{deleted_files}")
         
         return ApiResponse.ok({
             "message": "删除成功"
@@ -373,8 +454,7 @@ async def get_plaza_animation_detail(
             user_result = await db.execute(user_stmt)
             user = user_result.scalar_one_or_none()
             if user:
-                phone = user.phone_number
-                anim_data["author_name"] = f"{phone[:3]}****{phone[-4:]}"
+                anim_data["author_name"] = mask_phone_number(user.phone_number)
         
         return ApiResponse.ok(anim_data)
         
@@ -400,6 +480,7 @@ async def get_plaza_animations(db: AsyncSession = Depends(get_db)):
       - created_at: 创建时间
     """
     try:
+        # 优化查询：一次性获取所有需要显示作者的动画的用户信息
         stmt = (
             select(Animation)
             .where(Animation.is_public == True)
@@ -409,7 +490,18 @@ async def get_plaza_animations(db: AsyncSession = Depends(get_db)):
         result = await db.execute(stmt)
         animations = result.scalars().all()
         
-        # 获取作者信息
+        # 收集需要查询的用户ID
+        user_ids_to_fetch = {anim.user_id for anim in animations if anim.show_author}
+        
+        # 批量查询用户信息
+        users_map = {}
+        if user_ids_to_fetch:
+            user_stmt = select(User).where(User.id.in_(user_ids_to_fetch))
+            user_result = await db.execute(user_stmt)
+            users = user_result.scalars().all()
+            users_map = {user.id: user for user in users}
+        
+        # 构建返回列表
         animation_list = []
         for anim in animations:
             anim_data = {
@@ -420,15 +512,10 @@ async def get_plaza_animations(db: AsyncSession = Depends(get_db)):
                 "created_at": anim.created_at.isoformat()
             }
             
-            # 如果作者选择公开用户名，则查询并返回
-            if anim.show_author:
-                user_stmt = select(User).where(User.id == anim.user_id)
-                user_result = await db.execute(user_stmt)
-                user = user_result.scalar_one_or_none()
-                if user:
-                    # 隐藏手机号中间4位
-                    phone = user.phone_number
-                    anim_data["author_name"] = f"{phone[:3]}****{phone[-4:]}"
+            # 如果作者选择公开用户名，则从缓存的用户信息中获取
+            if anim.show_author and anim.user_id in users_map:
+                user = users_map[anim.user_id]
+                anim_data["author_name"] = mask_phone_number(user.phone_number)
             
             animation_list.append(anim_data)
         
@@ -535,8 +622,12 @@ async def unlike_animation(
         if not like:
             return ApiResponse.error(400, "还没有点赞")
         
-        # 删除点赞记录
-        await db.delete(like)
+        # 删除点赞记录（使用 delete 语句）
+        delete_stmt = delete(AnimationLike).where(
+            AnimationLike.animation_id == animation_id,
+            AnimationLike.user_id == current_user.id
+        )
+        await db.execute(delete_stmt)
         
         # 更新动画点赞数
         anim_stmt = select(Animation).where(Animation.id == animation_id)
@@ -685,7 +776,7 @@ async def generate_share_link(
         
         # 如果已有分享码，直接返回
         if animation.share_code:
-            share_url = f"http://localhost:5174/physics/play/{animation.share_code}"
+            share_url = f"{FRONTEND_BASE_URL}/physics/play/{animation.share_code}"
             return ApiResponse.ok({
                 "share_code": animation.share_code,
                 "share_url": share_url
@@ -704,7 +795,7 @@ async def generate_share_link(
         animation.share_code = share_code
         await db.commit()
         
-        share_url = f"http://localhost:5174/physics/play/{share_code}"
+        share_url = f"{FRONTEND_BASE_URL}/physics/play/{share_code}"
         
         log.info(f"用户 {current_user.id} 生成分享链接：{animation_id} -> {share_code}")
         
@@ -758,8 +849,7 @@ async def get_animation_by_share_code(
             user_result = await db.execute(user_stmt)
             user = user_result.scalar_one_or_none()
             if user:
-                phone = user.phone_number
-                anim_data["author_name"] = f"{phone[:3]}****{phone[-4:]}"
+                anim_data["author_name"] = mask_phone_number(user.phone_number)
         
         return ApiResponse.ok(anim_data)
         

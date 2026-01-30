@@ -70,8 +70,16 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
         // 设置选中状态
         setSelectedCardId(animationId);
         
+        // 转换场景数据中的图片路径为完整 URL
+        const sceneData = { ...animData.scene_data };
+        if (sceneData.imagePreview && !sceneData.imagePreview.startsWith('data:')) {
+          // 如果是相对路径，转换为完整 URL
+          sceneData.imagePreview = `${API_BASE_URL}${sceneData.imagePreview}`;
+          console.log('[PlazaPanel] 转换背景图路径:', sceneData.imagePreview);
+        }
+        
         // 调用父组件的加载函数（传递动画ID用于Fork）
-        onLoadAnimation(animData.scene_data, animationId);
+        onLoadAnimation(sceneData, animationId);
         
         // 通知父组件这是广场动画，需要显示信息区
         if (onPlazaAnimationLoad) {
@@ -97,7 +105,7 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
     <div style={{
       position: 'fixed',
       bottom: 20,
-      top: 560,  // 从"我的动画"区域下方开始（80 + 440 + 20）
+      top: 680,  // 从画布和信息区域下方开始（80 + 520 + 60 + 20）
       left: 20,
       right: 400,  // 为右侧"我的动画"面板留空间
       background: 'linear-gradient(135deg, #ffffff 0%, #fff8e1 100%)',
@@ -233,12 +241,19 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
               }}>
                 {anim.thumbnail_url ? (
                   <img 
-                    src={anim.thumbnail_url} 
+                    src={anim.thumbnail_url.startsWith('data:') || anim.thumbnail_url.startsWith('http') 
+                      ? anim.thumbnail_url 
+                      : `${API_BASE_URL}${anim.thumbnail_url}`
+                    } 
                     alt={anim.title}
                     style={{
                       width: '100%',
                       height: '100%',
                       objectFit: 'cover'
+                    }}
+                    onError={(e) => {
+                      console.error('[广场封面加载失败]', anim.thumbnail_url);
+                      e.target.style.display = 'none';
                     }}
                   />
                 ) : (

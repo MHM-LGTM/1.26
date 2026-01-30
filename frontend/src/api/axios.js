@@ -12,11 +12,10 @@
 
 import axios from 'axios';
 import useAuthStore from '../store/authStore.js';
-
-const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+import { API_BASE_URL } from '../config/api.js';
 
 const instance = axios.create({
-  baseURL,
+  baseURL: API_BASE_URL,
   timeout: 60000, // 60秒超时
 });
 
@@ -39,8 +38,10 @@ instance.interceptors.response.use(
     if (error.response?.status === 401) {
       // Token 过期或无效，清除登录状态
       useAuthStore.getState().logout();
-      // 可选：显示提示
-      console.warn('Token 已过期，请重新登录');
+      // 显示友好提示（使用 toast 而不是 console）
+      import('react-hot-toast').then(({ default: toast }) => {
+        toast.error('登录已过期，请重新登录');
+      });
     }
     return Promise.reject(error);
   }

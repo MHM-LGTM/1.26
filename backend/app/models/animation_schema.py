@@ -19,7 +19,7 @@ class AnimationCreateRequest(BaseModel):
     """创建动画请求"""
     title: str = Field(..., min_length=1, max_length=100, description="动画名称")
     description: Optional[str] = Field(None, max_length=500, description="动画描述")
-    thumbnail_url: Optional[str] = Field(None, description="封面图URL（data URL）")
+    thumbnail_url: Optional[str] = Field(None, description="封面图相对路径（如：/uploads/animations/xxx.png）")
     scene_data: Dict[str, Any] = Field(..., description="场景数据（JSON）")
     
     class Config:
@@ -27,9 +27,9 @@ class AnimationCreateRequest(BaseModel):
             "example": {
                 "title": "弹性碰撞演示",
                 "description": "展示两个小球的弹性碰撞过程",
-                "thumbnail_url": "data:image/png;base64,iVBOR...",
+                "thumbnail_url": "/uploads/animations/abc123_cover.png",
                 "scene_data": {
-                    "imagePreview": "data:image/png;base64,...",
+                    "imagePreview": "/uploads/animations/abc123_background.png",
                     "imageNaturalSize": {"w": 800, "h": 600},
                     "objects": [],
                     "constraints": []

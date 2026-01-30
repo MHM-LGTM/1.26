@@ -57,87 +57,13 @@ import PhysicsParametersPanel from './PhysicsParametersPanel.jsx';
 import useAuthStore from '../store/authStore';
 import { drawContour, clear, drawDragRect, drawPivotMarker } from '../utils/drawMask.js';
 import { runSimulation } from '../utils/physicsEngine.js';
-
-// ============================================================================
-// 特殊元素类型配置（扩展性设计）
-// 新增特殊元素时，在此添加配置即可
-//
-// 2025-11-25 更新：添加弹簧系统支持
-// - spring_constraint: 约束型弹簧，需要选择两个连接点
-// - spring_launcher: 弹射型弹簧，需要选择固定点和弹射端
-// ============================================================================
-const SPECIAL_ELEMENT_TYPES = {
-  // 摆球：需要选择支点
-  pendulum_bob: {
-    needsPivot: true,
-    needsSecondPivot: false,  // 只需要一个支点
-    interactionMode: 'select_pivot',
-    defaultPrompt: '请点击选择该摆球的支点（悬挂点）',
-    defaultSecondPrompt: null,
-  },
-  // 约束型弹簧：需要选择两个连接点
-  spring_constraint: {
-    needsPivot: true,
-    needsSecondPivot: true,  // 需要两个端点
-    interactionMode: 'select_spring_endpoints',
-    defaultPrompt: '请点击选择弹簧的第一个连接点',
-    defaultSecondPrompt: '请点击选择弹簧的第二个连接点',
-  },
-  // 弹射型弹簧：需要选择固定点和弹射端
-  spring_launcher: {
-    needsPivot: true,
-    needsSecondPivot: true,  // 需要两个端点
-    interactionMode: 'select_spring_endpoints',
-    defaultPrompt: '请点击选择弹簧的固定支点（墙壁或固定物体）',
-    defaultSecondPrompt: '请点击选择弹簧的弹射端连接点',
-  },
-  // 可在此添加更多特殊元素类型...
-};
-
-// ============================================================================
-// 辅助函数：检查元素是否需要特殊交互
-// 2025-11-25 更新：添加第二个端点的支持
-// ============================================================================
-
-// 检查元素是否需要第一个支点选择
-const elementNeedsSpecialInteraction = (elem) => {
-  if (!elem) return false;
-  // 优先使用后端返回的 constraints.needs_pivot
-  if (elem.constraints?.needs_pivot === true) return true;
-  // 其次根据 element_type 判断
-  const typeConfig = SPECIAL_ELEMENT_TYPES[elem.element_type];
-  return typeConfig?.needsPivot === true;
-};
-
-// 检查元素是否需要第二个支点选择（弹簧系统专用）
-const elementNeedsSecondPivot = (elem) => {
-  if (!elem) return false;
-  // 优先使用后端返回的 constraints.needs_second_pivot
-  if (elem.constraints?.needs_second_pivot === true) return true;
-  // 其次根据 element_type 判断
-  const typeConfig = SPECIAL_ELEMENT_TYPES[elem.element_type];
-  return typeConfig?.needsSecondPivot === true;
-};
-
-// 获取元素的第一个端点交互提示文案
-const getElementPivotPrompt = (elem) => {
-  if (!elem) return '请选择支点';
-  // 优先使用后端返回的提示文案
-  if (elem.constraints?.pivot_prompt) return elem.constraints.pivot_prompt;
-  // 其次使用默认提示
-  const typeConfig = SPECIAL_ELEMENT_TYPES[elem.element_type];
-  return typeConfig?.defaultPrompt || '请选择支点';
-};
-
-// 获取元素的第二个端点交互提示文案（弹簧系统专用）
-const getElementSecondPivotPrompt = (elem) => {
-  if (!elem) return '请选择第二个连接点';
-  // 优先使用后端返回的提示文案
-  if (elem.constraints?.second_pivot_prompt) return elem.constraints.second_pivot_prompt;
-  // 其次使用默认提示
-  const typeConfig = SPECIAL_ELEMENT_TYPES[elem.element_type];
-  return typeConfig?.defaultSecondPrompt || '请选择第二个连接点';
-};
+import {
+  SPECIAL_ELEMENT_TYPES,
+  elementNeedsSpecialInteraction,
+  elementNeedsSecondPivot,
+  getElementPivotPrompt,
+  getElementSecondPivotPrompt
+} from './physics/elementTypes.js';
 
 const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClosePlazaInfo }, ref) => {
   const [serverStatus, setServerStatus] = useState('');
@@ -169,6 +95,9 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
   
   // 2026-01-21 新增：分割功能禁用状态（模拟创建后禁用SAM分割）
   const [isSegmentationDisabled, setIsSegmentationDisabled] = useState(false);
+  
+  // 2026-01-28 新增：交互模式状态
+  const [isInteractiveModeActive, setIsInteractiveModeActive] = useState(false);
 
   // 弹窗拖拽相关状态
   const [popupOffset, setPopupOffset] = useState({ x: 0, y: 0 }); // 弹窗的手动偏移量
@@ -351,6 +280,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         
         // 重置运行状态为未运行
         setIsSimulationRunning(false);
+        setIsInteractiveModeActive(false);  // 加载动画时重置交互模式
         
         // ========================================================================
         // 【2026-01-21 新增】加载动画时禁用分割功能
@@ -360,26 +290,10 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         console.log('[PhysicsInputBox] 已禁用图像分割功能（动画已创建）');
 
         // ========================================================================
-        // 【核心改动】立即创建冻结的刚体，让用户看到完整的画面
-        // 使用 setTimeout 确保图片和 DOM 已经渲染完成
+        // 【核心改动】冻结的刚体创建延后到图片 onLoad 事件中
+        // 这样可以确保图片完全加载后再创建刚体，避免尺寸计算错误
         // ========================================================================
-        setTimeout(() => {
-          if (sceneData.objects && sceneData.objects.length > 0 && imgRef.current && simRef.current) {
-            console.log('[PhysicsInputBox] 创建冻结的刚体预览');
-            
-            const sim = runSimulation({
-              container: simRef.current,
-              objects: sceneData.objects,
-              constraints: sceneData.constraints || [],
-              imageRect: imgRef.current.getBoundingClientRect(),
-              naturalSize: sceneData.imageNaturalSize,
-              frozen: true  // 关键参数：创建冻结的刚体
-            });
-            
-            runningSimulation.current = sim;
-            console.log('[PhysicsInputBox] 冻结的刚体已创建');
-          }
-        }, 100);  // 延迟100ms确保图片加载完成
+        // 注意：刚体创建逻辑已移至 handleImageLoad 中，在图片加载完成后自动触发
 
         // 提示用户
         alert('✅ 动画已加载！点击"开始模拟"即可运行');
@@ -492,9 +406,34 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
 
   const handleImageLoad = (ev) => {
     // 记录图片原始尺寸
-    setImageNaturalSize({ w: ev.target.naturalWidth, h: ev.target.naturalHeight });
+    const newSize = { w: ev.target.naturalWidth, h: ev.target.naturalHeight };
+    setImageNaturalSize(newSize);
+    console.log('[PhysicsInputBox] 图片加载完成，尺寸:', newSize);
     // 同步画布尺寸
     syncCanvasSize();
+    
+    // 如果是加载动画后的图片加载，需要重新创建冻结的刚体预览
+    if (assignments.length > 0 && imgRef.current && simRef.current) {
+      console.log('[PhysicsInputBox] 图片加载完成，重新创建冻结的刚体预览');
+      setTimeout(() => {
+        if (runningSimulation.current) {
+          runningSimulation.current.stop();
+          runningSimulation.current = null;
+        }
+        
+        const sim = runSimulation({
+          container: simRef.current,
+          objects: assignments,
+          constraints: constraintRelations || [],
+          imageRect: imgRef.current.getBoundingClientRect(),
+          naturalSize: newSize,
+          frozen: true
+        });
+        
+        runningSimulation.current = sim;
+        console.log('[PhysicsInputBox] 冻结的刚体已重新创建（基于新的图片尺寸）');
+      }, 50);
+    }
   };
 
   const handleDrop = (e) => {
@@ -1128,6 +1067,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
       
       // 3. 更新状态
       setIsSimulationRunning(false);
+      setIsInteractiveModeActive(false);  // 重置时退出交互模式
       return;
     }
     
@@ -1325,13 +1265,19 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
                   top: '50%', 
                   left: '50%', 
                   transform: 'translate(-50%, -50%)', 
-                  zIndex: 2, 
-                  cursor: isSegmentationDisabled && interactionMode === 'segment' ? 'not-allowed' : 'crosshair' 
+                  zIndex: isInteractiveModeActive ? 1 : 2,  // 交互模式时降低层级，让物理画布在上面
+                  cursor: isSegmentationDisabled && interactionMode === 'segment' ? 'not-allowed' : 'crosshair',
+                  pointerEvents: isInteractiveModeActive ? 'none' : 'auto'  // 交互模式时禁用SAM画布的鼠标事件
                 }}
               />
               <div
                 ref={simRef}
-                style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none' }}
+                style={{ 
+                  position: 'absolute', 
+                  inset: 0, 
+                  zIndex: isInteractiveModeActive ? 3 : 1,  // 交互模式时提升层级
+                  pointerEvents: isInteractiveModeActive ? 'auto' : 'none'  // 交互模式时启用鼠标事件
+                }}
               />
 
               {lastImageContour.length > 0 && pendingElements.length > 0 && canvasRef.current && lastMousePos && (() => {
@@ -1460,6 +1406,96 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
                    </div>
                  );
               })()}
+
+              {/* 右上角：交互模式按钮（2026-01-28 新增）*/}
+              {isSimulationRunning && !isInteractiveModeActive && (
+                <div style={{
+                  position: 'absolute',
+                  top: 16,
+                  right: 16,
+                  zIndex: 30,
+                  pointerEvents: 'auto'
+                }}>
+                  <button
+                    className="start-btn"
+                    onClick={() => {
+                      if (runningSimulation.current && runningSimulation.current.toggleInteractiveMode) {
+                        const newState = runningSimulation.current.toggleInteractiveMode();
+                        setIsInteractiveModeActive(newState);
+                      }
+                    }}
+                    style={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                      backdropFilter: 'blur(8px)',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      borderRadius: '10px',
+                      border: '1px solid #000',
+                      background: 'linear-gradient(135deg, #fff 0%, #fffef8 100%)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'linear-gradient(135deg, #fff8e1 0%, #ffeaa7 100%)';
+                      e.currentTarget.style.boxShadow = '0 6px 16px rgba(255, 152, 0, 0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'linear-gradient(135deg, #fff 0%, #fffef8 100%)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+                    }}
+                  >
+                    🎮 交互模式
+                  </button>
+                </div>
+              )}
+              
+              {/* 右上角：退出交互模式按钮 + 提示条 */}
+              {isSimulationRunning && isInteractiveModeActive && (
+                <>
+                  <div style={{
+                    position: 'absolute',
+                    top: 16,
+                    right: 16,
+                    zIndex: 30,
+                    pointerEvents: 'auto'
+                  }}>
+                    <button
+                      className="start-btn"
+                      onClick={() => {
+                        if (runningSimulation.current && runningSimulation.current.toggleInteractiveMode) {
+                          const newState = runningSimulation.current.toggleInteractiveMode();
+                          setIsInteractiveModeActive(newState);
+                        }
+                      }}
+                      style={{
+                        backgroundColor: 'rgba(255, 234, 167, 0.95)',
+                        backdropFilter: 'blur(8px)',
+                        boxShadow: '0 4px 12px rgba(255, 152, 0, 0.25)',
+                        padding: '6px 12px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        borderRadius: '10px',
+                        border: '1px solid #ff9800',
+                        background: 'linear-gradient(135deg, #ffeaa7 0%, #ffcc80 100%)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'linear-gradient(135deg, #ffcc80 0%, #ff9800 100%)';
+                        e.currentTarget.style.boxShadow = '0 6px 16px rgba(255, 152, 0, 0.35)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'linear-gradient(135deg, #ffeaa7 0%, #ffcc80 100%)';
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 152, 0, 0.25)';
+                      }}
+                    >
+                      ✓ 交互模式
+                    </button>
+                  </div>
+                </>
+              )}
 
               <div style={{
                 position: 'absolute',

@@ -113,8 +113,17 @@ export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
       if (data.code === 0) {
         const animData = data.data;
         console.log('[MyAnimationsPanel] 加载动画:', animData.title);
+        
+        // 转换场景数据中的图片路径为完整 URL
+        const sceneData = { ...animData.scene_data };
+        if (sceneData.imagePreview && !sceneData.imagePreview.startsWith('data:')) {
+          // 如果是相对路径，转换为完整 URL
+          sceneData.imagePreview = `${API_BASE_URL}${sceneData.imagePreview}`;
+          console.log('[MyAnimationsPanel] 转换背景图路径:', sceneData.imagePreview);
+        }
+        
         // 调用父组件传入的加载函数
-        onLoadAnimation(animData.scene_data);
+        onLoadAnimation(sceneData);
       } else {
         alert(`加载失败：${data.message}`);
       }
@@ -185,7 +194,8 @@ export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
         top: 80,
         right: 20,
         width: 340,
-        height: 770,
+        height: 'calc(100vh - 100px)',
+        maxHeight: 820,
         background: 'linear-gradient(135deg, #ffffff 0%, #fff8e1 100%)',
         borderRadius: 16,
         padding: 16,
@@ -333,12 +343,19 @@ export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
               }}>
                 {anim.thumbnail_url ? (
                   <img 
-                    src={anim.thumbnail_url} 
+                    src={anim.thumbnail_url.startsWith('data:') || anim.thumbnail_url.startsWith('http') 
+                      ? anim.thumbnail_url 
+                      : `${API_BASE_URL}${anim.thumbnail_url}`
+                    } 
                     alt={anim.title}
                     style={{
                       width: '100%',
                       height: '100%',
                       objectFit: 'cover'
+                    }}
+                    onError={(e) => {
+                      console.error('[封面加载失败]', anim.thumbnail_url);
+                      e.target.style.display = 'none';
                     }}
                   />
                 ) : (

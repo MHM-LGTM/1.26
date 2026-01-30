@@ -36,7 +36,16 @@ export default function PlayPage() {
         const data = await response.json();
         
         if (data.code === 0) {
-          setAnimation(data.data);
+          // 转换场景数据中的图片路径为完整 URL
+          const animData = { ...data.data };
+          if (animData.scene_data && animData.scene_data.imagePreview && !animData.scene_data.imagePreview.startsWith('data:')) {
+            animData.scene_data = {
+              ...animData.scene_data,
+              imagePreview: `${API_BASE_URL}${animData.scene_data.imagePreview}`
+            };
+            console.log('[PlayPage] 转换背景图路径:', animData.scene_data.imagePreview);
+          }
+          setAnimation(animData);
           // 移除自动播放：用户需要手动点击"开始模拟"按钮
         } else {
           setError(data.message || '动画不存在或链接已失效');

@@ -75,13 +75,11 @@ export async function resetPassword(phoneNumber, verificationCode, newPassword) 
 
 /**
  * 获取当前用户信息
- * @param {string} token - JWT Token
  * @returns {Promise} 用户信息
+ * @note Token 由拦截器自动添加，无需手动传入
  */
-export async function getCurrentUser(token) {
-  const response = await axios.get('/auth/me', {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+export async function getCurrentUser() {
+  const response = await axios.get('/auth/me');
   return response.data;
 }
 

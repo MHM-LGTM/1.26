@@ -31,7 +31,7 @@ class Feedback(Base):
     id = Column(Integer, primary_key=True, index=True, comment="反馈ID")
     email = Column(String(255), nullable=False, index=True, comment="联系邮箱")
     description = Column(Text, nullable=False, comment="问题描述")
-    images = Column(Text, nullable=True, comment="图片路径（JSON格式存储）")
+    images = Column(Text, nullable=True, comment="图片相对路径数组（JSON格式存储，如：['/uploads/feedback/xxx.png']）")
     status = Column(
         Enum(FeedbackStatus), 
         default=FeedbackStatus.PENDING, 

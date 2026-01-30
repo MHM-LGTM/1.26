@@ -23,9 +23,9 @@ router = APIRouter()
 
 @router.post("/upload", response_model=ApiResponse)
 async def upload_image(file: UploadFile = File(...)):
-    path = save_upload_file("math", file)
-    log.info(f"Math image saved: {path}")
-    return ApiResponse.ok({"path": str(path)})
+    abs_path, relative_path = await save_upload_file(file, "math")
+    log.info(f"Math image saved: {abs_path}")
+    return ApiResponse.ok({"path": str(abs_path)})
 
 
 def _mock_render(task_id: str, req: MathRenderRequest):

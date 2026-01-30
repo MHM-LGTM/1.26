@@ -219,6 +219,7 @@
   background: linear-gradient(90deg, #fff8e1 0%, #ffeaa7 100%);
   outline: none;
   -webkit-appearance: none;
+  appearance: none;
   margin-bottom: 6px;
 }
 

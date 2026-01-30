@@ -10,6 +10,7 @@
 import React, { useState, useRef } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import toast from 'react-hot-toast';
+import { API_BASE_URL } from '../config/api';
 import './JoinUsModal.css';
 import './CommonModal.css';
 import './FeedbackModal.css';
@@ -98,7 +99,7 @@ export default function FeedbackModal({ isOpen, onClose }) {
       });
 
       // 提交反馈
-      const response = await fetch('http://localhost:8000/api/feedback', {
+      const response = await fetch(`${API_BASE_URL}/api/feedback`, {
         method: 'POST',
         body: formData,
       });

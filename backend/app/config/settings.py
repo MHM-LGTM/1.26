@@ -43,10 +43,14 @@ else:
 
 PHYSICS_UPLOAD_DIR = UPLOAD_DIR / "physics"
 MATH_UPLOAD_DIR = UPLOAD_DIR / "math"
+FEEDBACK_UPLOAD_DIR = UPLOAD_DIR / "feedback"
+ANIMATIONS_UPLOAD_DIR = UPLOAD_DIR / "animations"
 
 # 确保目录存在
 PHYSICS_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 MATH_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+FEEDBACK_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+ANIMATIONS_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # 允许跨域的前端地址
 _origins_csv = os.getenv("FRONTEND_ORIGINS", "").strip()
@@ -113,3 +117,8 @@ SMS_TEMPLATE_RESET_PASSWORD = os.getenv("SMS_TEMPLATE_RESET_PASSWORD", "SMS_5013
 VERIFICATION_CODE_EXPIRE_MINUTES = int(os.getenv("VERIFICATION_CODE_EXPIRE_MINUTES", 5))  # 验证码有效期（分钟）
 VERIFICATION_CODE_LENGTH = int(os.getenv("VERIFICATION_CODE_LENGTH", 6))  # 验证码长度
 SMS_RATE_LIMIT_SECONDS = int(os.getenv("SMS_RATE_LIMIT_SECONDS", 60))  # 同一手机号发送间隔（秒）
+
+# --- 前端地址配置 ---
+# 前端基础 URL，用于生成分享链接等
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:5174")
+

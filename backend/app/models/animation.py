@@ -23,8 +23,8 @@ class Animation(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True, comment="创建者ID")
     title = Column(String(100), nullable=False, comment="动画名称")
     description = Column(Text, nullable=True, comment="动画描述")
-    thumbnail_url = Column(Text, nullable=True, comment="封面图URL（data URL或相对路径）")
-    scene_data = Column(JSON, nullable=False, comment="场景数据（JSON格式）")
+    thumbnail_url = Column(Text, nullable=True, comment="封面图相对路径（如：/uploads/animations/uuid_file.png）")
+    scene_data = Column(JSON, nullable=False, comment="场景数据（JSON格式，其中 imagePreview 也存储相对路径）")
     
     # 社区功能相关
     is_public = Column(Boolean, default=False, comment="是否发布到广场")

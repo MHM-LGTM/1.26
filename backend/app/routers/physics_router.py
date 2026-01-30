@@ -210,7 +210,7 @@ async def upload_image(file: UploadFile = File(...)):
     request_start = time.perf_counter()
     
     # 保存图片
-    save_path = save_upload_file("physics", file)
+    save_path, _ = await save_upload_file(file, "physics")
     log.info(f"[上传] 图片已保存: {save_path}")
     
     # 检查当前排队情况

@@ -20,6 +20,7 @@ import os
 from datetime import datetime
 
 from ..config.database import get_db
+from ..config.settings import FEEDBACK_UPLOAD_DIR
 from ..models.feedback import Feedback, FeedbackStatus
 from ..models.feedback_schema import FeedbackCreate, FeedbackResponse
 from ..models.response_schema import ApiResponse
@@ -45,31 +46,24 @@ async def create_feedback(
     
     返回：
     - 反馈ID和提交成功信息
+    
+    图片存储逻辑：
+    - 图片文件存储在服务器磁盘（backend/uploads/feedback/）
+    - 数据库中以 JSON 格式存储相对路径数组
     """
     try:
         # 验证图片数量
         if images and len(images) > 5:
             raise HTTPException(status_code=400, detail="最多只能上传5张图片")
         
-        # 保存图片
+        # 保存图片（使用统一的文件保存工具）
         image_paths = []
         if images:
-            upload_dir = "backend/uploads/feedback"
-            os.makedirs(upload_dir, exist_ok=True)
-            
             for img in images:
                 if img.filename:  # 确保文件名存在
-                    # 生成唯一文件名
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename = f"{timestamp}_{img.filename}"
-                    file_path = os.path.join(upload_dir, filename)
-                    
-                    # 保存文件
-                    with open(file_path, "wb") as buffer:
-                        content = await img.read()
-                        buffer.write(content)
-                    
-                    image_paths.append(file_path)
+                    # 使用统一的文件保存工具（返回元组：绝对路径和相对路径）
+                    _, relative_path = await save_upload_file(img, "feedback")
+                    image_paths.append(relative_path)
         
         # 创建反馈记录
         feedback = Feedback(

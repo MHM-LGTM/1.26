@@ -25,26 +25,28 @@ export default function MathInputBox() {
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
 
+  // 触发文件选择
   const pickFile = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = async (ev) => {
-      const file = ev.target.files[0];
-      if (!file) return;
-      setImagePreview(URL.createObjectURL(file));
-      setLoading(true);
-      setError('');
-      try {
-        const resp = await uploadImage(file);
-        setImagePath(resp?.data?.path || '');
-      } catch (e) {
-        setError('图片上传失败');
-      } finally {
-        setLoading(false);
-      }
-    };
-    input.click();
+    fileInputRef.current?.click();
+  };
+
+  // 处理文件选择
+  const handleFileSelected = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setImagePreview(URL.createObjectURL(file));
+    setLoading(true);
+    setError('');
+    
+    try {
+      const resp = await uploadImage(file);
+      setImagePath(resp?.data?.path || '');
+    } catch (e) {
+      setError(e?.response?.data?.message || e?.message || '图片上传失败');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const createRender = async () => {
@@ -110,18 +112,3 @@ export default function MathInputBox() {
     </div>
   );
 }
-  const pickFile = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileSelected = async (e) => {
-    try {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      setError('');
-      setImagePreview(URL.createObjectURL(file));
-      await uploadImage(file);
-    } catch (err) {
-      setError(err?.response?.data?.message || err?.message || '上传题图失败');
-    }
-  };
