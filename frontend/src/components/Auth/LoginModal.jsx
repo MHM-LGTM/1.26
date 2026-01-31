@@ -263,7 +263,7 @@ export default function LoginModal({ isOpen, onClose }) {
 
           {/* 标题 */}
           <Dialog.Title className="auth-title">
-            {mode === 'login' ? '欢迎回来' : mode === 'register' ? '加入我们' : '找回密码'}
+            {mode === 'login' ? '欢迎回来' : mode === 'register' ? '用户注册' : '找回密码'}
           </Dialog.Title>
 
           {/* 描述（用于可访问性） */}
@@ -271,7 +271,7 @@ export default function LoginModal({ isOpen, onClose }) {
             {mode === 'login' 
               ? '请输入您的手机号和密码登录' 
               : mode === 'register' 
-              ? '请填写信息创建新账号' 
+              ? '请填写以下信息完成注册' 
               : '请输入手机号和验证码重置密码'}
           </Dialog.Description>
 

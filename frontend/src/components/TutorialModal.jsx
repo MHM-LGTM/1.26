@@ -54,39 +54,16 @@ export default function TutorialModal({ isOpen, onClose }) {
             <div className="position-card">
               <div className="position-header">
                 <span className="position-icon">📐</span>
-                <h4 className="position-title">物理模拟</h4>
+                <h4 className="position-title">物理图表可视化模拟</h4>
+              </div>
+              <div className="feature-description">
+                <p>专注于模拟物理课本和习题中的简单静态图表，帮助学生更直观地理解物理概念。</p>
               </div>
               <ul className="requirements-list">
-                <li>拖拽创建物体（小球、方块）</li>
-                <li>添加物理约束（绳子、轻杆、滑轮）</li>
-                <li>实时物理引擎模拟</li>
-                <li>导出和分享动画</li>
-              </ul>
-            </div>
-
-            <div className="position-card">
-              <div className="position-header">
-                <span className="position-icon">🎨</span>
-                <h4 className="position-title">数学动画</h4>
-              </div>
-              <ul className="requirements-list">
-                <li>输入数学公式</li>
-                <li>自动生成动画演示</li>
-                <li>支持多种数学符号</li>
-                <li>保存和回放功能</li>
-              </ul>
-            </div>
-
-            <div className="position-card">
-              <div className="position-header">
-                <span className="position-icon">🌐</span>
-                <h4 className="position-title">广场分享</h4>
-              </div>
-              <ul className="requirements-list">
-                <li>浏览他人的优秀作品</li>
-                <li>点赞和收藏动画</li>
-                <li>分享自己的创作</li>
-                <li>学习和交流</li>
+                <li><strong>支持场景：</strong>单摆、弹簧、轻绳轻杆模型、运动学、电学电路及电流流向等</li>
+                <li><strong>操作流程：</strong>上传图片 → AI 识别物理元素 → 框选模拟区域 → 点击开始模拟</li>
+                <li><strong>参数调整：</strong>右侧自定义功能区可调整重力、摩擦力、速度等具体参数</li>
+                <li><strong>性能说明：</strong>目前适用于简单场景，复杂场景的性能还在持续优化中</li>
               </ul>
             </div>
           </div>

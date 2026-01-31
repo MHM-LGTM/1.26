@@ -4,12 +4,12 @@
  * 功能：
  * - 显示"关于"按钮
  * - 点击展开下拉菜单
- * - 提供加入我们、技术合作、使用教程、问题反馈等选项
+ * - 提供加入我们、会员获取、使用教程、问题反馈等选项
  */
 
 import React, { useState, useRef, useEffect } from 'react';
 import JoinUsModal from './JoinUsModal';
-import TechCooperationModal from './TechCooperationModal';
+import MembershipModal from './MembershipModal';
 import TutorialModal from './TutorialModal';
 import FeedbackModal from './FeedbackModal';
 import '../components/Auth/styles.css';
@@ -17,7 +17,7 @@ import '../components/Auth/styles.css';
 export default function AboutMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [showJoinUsModal, setShowJoinUsModal] = useState(false);
-  const [showTechCooperationModal, setShowTechCooperationModal] = useState(false);
+  const [showMembershipModal, setShowMembershipModal] = useState(false);
   const [showTutorialModal, setShowTutorialModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const menuRef = useRef(null);
@@ -46,8 +46,8 @@ export default function AboutMenu() {
       case '加入我们':
         setShowJoinUsModal(true);
         break;
-      case '技术合作':
-        setShowTechCooperationModal(true);
+      case '会员获取':
+        setShowMembershipModal(true);
         break;
       case '使用教程':
         setShowTutorialModal(true);
@@ -75,8 +75,8 @@ export default function AboutMenu() {
             <div className="user-menu-item" onClick={() => handleMenuClick('加入我们')}>
               加入我们
             </div>
-            <div className="user-menu-item" onClick={() => handleMenuClick('技术合作')}>
-              技术合作
+            <div className="user-menu-item" onClick={() => handleMenuClick('会员获取')}>
+              会员获取
             </div>
             <div className="user-menu-item" onClick={() => handleMenuClick('使用教程')}>
               使用教程
@@ -93,9 +93,9 @@ export default function AboutMenu() {
         isOpen={showJoinUsModal} 
         onClose={() => setShowJoinUsModal(false)} 
       />
-      <TechCooperationModal 
-        isOpen={showTechCooperationModal} 
-        onClose={() => setShowTechCooperationModal(false)} 
+      <MembershipModal 
+        isOpen={showMembershipModal} 
+        onClose={() => setShowMembershipModal(false)} 
       />
       <TutorialModal 
         isOpen={showTutorialModal} 
