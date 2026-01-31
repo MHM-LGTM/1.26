@@ -10,6 +10,9 @@
  * 2025-11-25 更新：添加弹簧系统支持
  * - spring_constraint: 约束型弹簧，需要选择两个连接点
  * - spring_launcher: 弹射型弹簧，需要选择固定点和弹射端
+ * 
+ * 2026-01-31 更新：添加绳索系统支持
+ * - rope_constraint: 绳索约束，需要选择两个连接点
  */
 
 export const SPECIAL_ELEMENT_TYPES = {
@@ -36,6 +39,14 @@ export const SPECIAL_ELEMENT_TYPES = {
     interactionMode: 'select_spring_endpoints',
     defaultPrompt: '请点击选择弹簧的固定支点（墙壁或固定物体）',
     defaultSecondPrompt: '请点击选择弹簧的弹射端连接点',
+  },
+  // 绳索约束：需要选择两个连接点
+  rope_constraint: {
+    needsPivot: true,
+    needsSecondPivot: true,  // 需要两个端点
+    interactionMode: 'select_rope_endpoints',
+    defaultPrompt: '请点击选择绳子的第一个连接点',
+    defaultSecondPrompt: '请点击选择绳子的第二个连接点',
   },
   // 可在此添加更多特殊元素类型...
 };
@@ -83,7 +94,7 @@ export const getElementPivotPrompt = (elem) => {
 };
 
 /**
- * 获取元素的第二个端点交互提示文案（弹簧系统专用）
+ * 获取元素的第二个端点交互提示文案（弹簧/绳索系统专用）
  * @param {Object} elem - 元素对象
  * @returns {string} - 提示文案
  */

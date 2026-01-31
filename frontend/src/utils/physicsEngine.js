@@ -34,6 +34,7 @@ import { toConvexHull } from './physics/geometry.js';
 import { douglasPeucker, preprocessContour, DP_EPSILON } from './physics/pathSimplification.js';
 import { decomposeToConvexPolygons } from './physics/convexDecomposition.js';
 import { createConvexHullBody, applyPhysicsProperties } from './physics/bodyCreator.js';
+import { VerletRope } from './physics/ropeSystem.js';
 
 // 解构 Matter.js 常用模块
 const { Engine, Render, Runner, Bodies, Composite, Body, Events, Vertices, Mouse, MouseConstraint } = Matter;
@@ -123,6 +124,9 @@ export function runSimulation({
       background: 'transparent'
     },
   });
+
+  // 绳子系统初始化
+  const ropes = [];
 
 
   // ────────────────────────────────────────────────────────────────
@@ -275,6 +279,79 @@ export function runSimulation({
 
     constraints.forEach((c, idx) => {
       const isSpring = c.springType === 'constraint' || c.springType === 'launcher';
+      // 修复：检查元素类型而不是约束类型，避免与单摆的绳子约束混淆
+      const isRopeConstraint = c.element_type === 'rope_constraint' && c.secondPivotPoint;
+
+      // 绳索系统处理（优先于弹簧处理）
+      if (isRopeConstraint) {
+        console.log(`[绳索系统] 处理绳索约束元素: ${c.bodyName}`);
+
+        const firstPoint = {
+          x: Math.round((c.pivotPoint?.x || 0) * sx),
+          y: Math.round((c.pivotPoint?.y || 0) * sy)
+        };
+        const secondPoint = {
+          x: Math.round((c.secondPivotPoint?.x || 0) * sx),
+          y: Math.round((c.secondPivotPoint?.y || 0) * sy)
+        };
+
+        const firstBody = bodiesMap[c.pivotName];
+        const secondBody = bodiesMap[c.secondPivotName];
+
+        // 创建 VerletRope 实例
+        const ropeParams = c.parameters || {};
+        const segments = ropeParams.segments || 15;
+        const stiffness = ropeParams.stiffness || 0.9;
+        const damping = ropeParams.damping || 0.98;
+
+        const rope = new VerletRope(
+          firstPoint.x,
+          firstPoint.y,
+          secondPoint.x,
+          secondPoint.y,
+          segments,
+          stiffness,
+          damping
+        );
+
+        // 附着到第一个端点
+        if (firstBody) {
+          rope.attachToBody({
+            body: firstBody,
+            offset: { x: 0, y: 0 }
+          }, true);
+          console.log(`[绳索系统] 第一端连接到物体: ${c.pivotName}`);
+        } else {
+          rope.points[0].pinned = true;
+          rope.points[0].x = firstPoint.x;
+          rope.points[0].y = firstPoint.y;
+          rope.points[0].oldX = firstPoint.x;
+          rope.points[0].oldY = firstPoint.y;
+          console.log(`[绳索系统] 第一端固定在世界坐标: (${firstPoint.x}, ${firstPoint.y})`);
+        }
+
+        // 附着到第二个端点
+        if (secondBody) {
+          rope.attachToBody({
+            body: secondBody,
+            offset: { x: 0, y: 0 }
+          }, false);
+          console.log(`[绳索系统] 第二端连接到物体: ${c.secondPivotName}`);
+        } else {
+          const lastIdx = rope.points.length - 1;
+          rope.points[lastIdx].pinned = true;
+          rope.points[lastIdx].x = secondPoint.x;
+          rope.points[lastIdx].y = secondPoint.y;
+          rope.points[lastIdx].oldX = secondPoint.x;
+          rope.points[lastIdx].oldY = secondPoint.y;
+          console.log(`[绳索系统] 第二端固定在世界坐标: (${secondPoint.x}, ${secondPoint.y})`);
+        }
+
+        ropes.push(rope);
+        console.log(`[绳索系统] 绳索创建成功，段数: ${segments}`);
+
+        return;
+      }
 
       if (isSpring && c.secondPivotPoint) {
         // 弹簧系统处理
@@ -458,6 +535,33 @@ export function runSimulation({
   Render.run(render);
 
   const runner = Runner.create();
+
+  // 绳索系统更新和渲染（即使初始没有绳子也要绑定事件，因为后续可能加载动画）
+  const ropeUpdateHandler = () => {
+    if (ropes.length > 0) {
+      const gravity = { x: 0, y: 0.3 }; // 增加重力让绳子自然下垂更明显
+      // 获取所有刚体用于碰撞检测（包括静态和动态）
+      const allBodies = Composite.allBodies(engine.world);
+      for (const rope of ropes) {
+        rope.update(gravity, width, height, allBodies);
+      }
+    }
+  };
+
+  const ropeRenderHandler = () => {
+    if (ropes.length > 0 && render.context) {
+      for (const rope of ropes) {
+        rope.render(render.context);
+      }
+    }
+  };
+
+  Events.on(engine, 'afterUpdate', ropeUpdateHandler);
+  Events.on(render, 'afterRender', ropeRenderHandler);
+
+  if (ropes.length > 0) {
+    console.log(`[绳索系统] 启用绳索渲染，共 ${ropes.length} 根绳索`);
+  }
   
   // 创建鼠标交互约束
   const mouse = Mouse.create(render.canvas);
@@ -605,6 +709,9 @@ export function runSimulation({
       Runner.stop(runner);
       Render.stop(render);
       Events.off(engine, 'beforeUpdate', onBeforeUpdate);
+      Events.off(engine, 'afterUpdate', ropeUpdateHandler);
+      Events.off(render, 'afterRender', ropeRenderHandler);
+      ropes.length = 0; // 清空绳索数组
       Composite.clear(engine.world, false);
       Engine.clear(engine);
       if (render.canvas) {

@@ -19,6 +19,18 @@ const getParametersByType = (obj) => {
   const role = obj.role || 'dynamic';
   const isStatic = role === 'static';
   
+  // 绳索约束物体
+  if (elementType === 'rope_constraint') {
+    return {
+      type: 'rope',
+      params: {
+        segments: obj.parameters?.segments ?? 25,
+        stiffness: obj.parameters?.stiffness ?? 0.95,
+        damping: obj.parameters?.damping ?? 0.98,
+      }
+    };
+  }
+  
   // 弹簧约束物体
   if (elementType === 'spring_constraint' || elementType === 'spring_launcher') {
     return {
@@ -139,6 +151,7 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, isSimulation
     const labels = {
       'dynamic': '动态',
       'static': '静态',
+      'rope': '绳索',
       'spring': '弹簧',
       'conveyor': '传送带',
       'pendulum': '摆球'
@@ -181,6 +194,93 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, isSimulation
 
       {/* 参数调节区域 */}
       <div className="params-content">
+        {/* ====================================================================== */}
+        {/* 绳索参数 */}
+        {/* ====================================================================== */}
+        {parameterType === 'rope' && (
+          <div className="param-section">
+            <div className="section-title">🪢 绳索参数</div>
+            
+            {/* 绳子段数 */}
+            <div className="param-item">
+              <div className="param-header">
+                <label className="param-label">绳子段数</label>
+                <input
+                  type="number"
+                  className="param-value-input"
+                  value={localParams.segments ?? 25}
+                  onChange={(e) => handleParamChange('segments', parseInt(e.target.value) || 25)}
+                  step="1"
+                  min="15"
+                  max="50"
+                />
+              </div>
+              <input
+                type="range"
+                className="param-slider"
+                min="15"
+                max="50"
+                step="1"
+                value={localParams.segments ?? 25}
+                onChange={(e) => handleParamChange('segments', parseInt(e.target.value))}
+              />
+              <div className="param-hint">建议20-30段，段数越多越平滑但性能开销越大</div>
+            </div>
+
+            {/* 刚度系数 */}
+            <div className="param-item">
+              <div className="param-header">
+                <label className="param-label">刚度系数</label>
+                <input
+                  type="number"
+                  className="param-value-input"
+                  value={localParams.stiffness ?? 0.95}
+                  onChange={(e) => handleParamChange('stiffness', parseFloat(e.target.value) || 0.95)}
+                  step="0.01"
+                  min="0.85"
+                  max="1"
+                />
+              </div>
+              <input
+                type="range"
+                className="param-slider"
+                min="0.85"
+                max="1"
+                step="0.01"
+                value={localParams.stiffness ?? 0.95}
+                onChange={(e) => handleParamChange('stiffness', parseFloat(e.target.value))}
+              />
+              <div className="param-hint">⚠️ 建议0.93-0.96，值越大绳子越硬</div>
+            </div>
+
+            {/* 阻尼系数 */}
+            <div className="param-item">
+              <div className="param-header">
+                <label className="param-label">阻尼系数</label>
+                <input
+                  type="number"
+                  className="param-value-input"
+                  value={localParams.damping ?? 0.98}
+                  onChange={(e) => handleParamChange('damping', parseFloat(e.target.value) || 0.98)}
+                  step="0.01"
+                  min="0.95"
+                  max="1"
+                />
+              </div>
+              <input
+                type="range"
+                className="param-slider"
+                min="0.95"
+                max="1"
+                step="0.01"
+                value={localParams.damping ?? 0.98}
+                onChange={(e) => handleParamChange('damping', parseFloat(e.target.value))}
+              />
+              <div className="param-hint">建议0.97-0.98，值越小衰减越快</div>
+            </div>
+          </div>
+        )}
+
         {/* ====================================================================== */}
         {/* 弹簧参数 */}
         {/* ====================================================================== */}

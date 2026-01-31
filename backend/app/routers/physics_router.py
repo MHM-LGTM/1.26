@@ -78,6 +78,7 @@ def _normalize_elements(full: Dict[str, object] | None) -> List[Dict[str, object
         "pendulum_bob",
         "spring_constraint",
         "spring_launcher",
+        "rope_constraint",
         "pivot",
         "anchor",
         "surface",
@@ -98,7 +99,7 @@ def _normalize_elements(full: Dict[str, object] | None) -> List[Dict[str, object
         is_concave = item.get("is_concave", False) if isinstance(item, dict) else False
 
         # 提取元素类型（element_type），决定前端交互行为
-        # rigid_body: 普通刚体 | pendulum_bob: 摆球 | spring_constraint: 约束型弹簧 | spring_launcher: 弹射型弹簧 | pivot/anchor: 支点 | surface: 表面
+        # rigid_body: 普通刚体 | pendulum_bob: 摆球 | spring_constraint: 约束型弹簧 | spring_launcher: 弹射型弹簧 | rope_constraint: 绳索约束 | pivot/anchor: 支点 | surface: 表面
         element_type = item.get("element_type", "rigid_body") if isinstance(item, dict) else "rigid_body"
         if element_type not in allowed_types:
             continue
@@ -111,17 +112,17 @@ def _normalize_elements(full: Dict[str, object] | None) -> List[Dict[str, object
         if not isinstance(constraints_raw, dict):
             constraints_raw = {}
 
-        # 标准化约束信息（2025-11-25 更新：添加弹簧系统的双端点支持）
+        # 标准化约束信息（2025-11-25 更新：添加弹簧系统的双端点支持；2026-01-31 更新：添加绳索系统支持）
         constraints = {
-            # 是否需要用户选择第一个支点（pendulum_bob/spring_constraint/spring_launcher 应为 true）
+            # 是否需要用户选择第一个支点（pendulum_bob/spring_constraint/spring_launcher/rope_constraint 应为 true）
             "needs_pivot": bool(constraints_raw.get("needs_pivot", False)),
-            # 是否需要用户选择第二个支点（spring_constraint/spring_launcher 应为 true）
+            # 是否需要用户选择第二个支点（spring_constraint/spring_launcher/rope_constraint 应为 true）
             "needs_second_pivot": bool(constraints_raw.get("needs_second_pivot", False)),
             # 大模型建议的支点元素名称
             "suggested_pivot": constraints_raw.get("suggested_pivot") or None,
             # 前端显示的第一个端点提示文案
             "pivot_prompt": constraints_raw.get("pivot_prompt") or None,
-            # 前端显示的第二个端点提示文案（弹簧系统专用）
+            # 前端显示的第二个端点提示文案（弹簧/绳索系统专用）
             "second_pivot_prompt": constraints_raw.get("second_pivot_prompt") or None,
             # 约束类型：pendulum/spring/rope/hinge/none
             "constraint_type": constraints_raw.get("constraint_type", "none") or "none",

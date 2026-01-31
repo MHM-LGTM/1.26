@@ -8,3 +8,4 @@ export * from './geometry.js';
 export * from './pathSimplification.js';
 export * from './convexDecomposition.js';
 export * from './bodyCreator.js';
+export * from './ropeSystem.js';

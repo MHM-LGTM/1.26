@@ -609,6 +609,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         bodyContour: bodyContour,
         pivotName: pivotName || '临时锚点',
         pivotPoint: pivotPointImage,
+        element_type: element.element_type, // 添加元素类型字段
         constraintType: element.constraints?.constraint_type || 'pendulum',
         stiffness: element.parameters?.constraint_stiffness ?? 1.0,
         length: length,
@@ -674,11 +675,12 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
 
     console.log(`[弹簧系统] 第二个端点: ${secondPivotName || '临时锚点'}`, secondPivotPointImage);
 
-    // 计算弹簧长度
+    // 判断是弹簧还是绳子
+    const isRope = element.element_type === 'rope_constraint';
     const springLength = calculateDistance(firstPoint, secondPivotPointImage);
     const springType = element.element_type === 'spring_launcher' ? 'launcher' : 'constraint';
 
-    // 创建弹簧约束
+    // 创建约束关系（弹簧或绳子）
     const newConstraint = {
       bodyName: bodyName,
       bodyContour: bodyContour,
@@ -686,14 +688,22 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
       pivotPoint: { x: firstPoint.x, y: firstPoint.y },
       secondPivotName: secondPivotName || '临时锚点',
       secondPivotPoint: secondPivotPointImage,
-      constraintType: 'spring',
-      stiffness: element.parameters?.spring_stiffness ?? (springType === 'launcher' ? 200 : 100),
-      damping: element.parameters?.spring_damping ?? 0.1,
+      element_type: element.element_type, // 关键：传递元素类型
+      constraintType: isRope ? 'rope' : 'spring',
       springLength: springLength,
-      springType: springType
+      springType: isRope ? null : springType,
+      // 弹簧参数
+      stiffness: isRope ? undefined : (element.parameters?.spring_stiffness ?? (springType === 'launcher' ? 200 : 100)),
+      damping: isRope ? undefined : (element.parameters?.spring_damping ?? 0.1),
+      // 绳子参数
+      parameters: isRope ? {
+        segments: element.parameters?.segments ?? 15,
+        stiffness: element.parameters?.stiffness ?? 0.9,
+        damping: element.parameters?.damping ?? 0.98
+      } : undefined
     };
 
-    console.log('[弹簧系统] 建立弹簧约束:', newConstraint);
+    console.log(`[${isRope ? '绳索' : '弹簧'}系统] 建立约束:`, newConstraint);
     setConstraintRelations(prev => [...prev, newConstraint]);
 
     // 绘制两个端点标记
