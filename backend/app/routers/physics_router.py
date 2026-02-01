@@ -83,6 +83,7 @@ def _normalize_elements(full: Dict[str, object] | None) -> List[Dict[str, object
         "anchor",
         "surface",
         "conveyor_belt",
+        "pulley_fixed",
     }
     if isinstance(full, dict):
         tmp = full.get("elements", []) or []
@@ -134,6 +135,17 @@ def _normalize_elements(full: Dict[str, object] | None) -> List[Dict[str, object
             constraints["constraint_type"] = "pendulum"
             if constraints.get("pivot_prompt") is None:
                 constraints["pivot_prompt"] = "请选择摆球的支点"
+
+        # 定滑轮类型规整
+        if element_type == "pulley_fixed":
+            # 定滑轮：固定位置，不能移动
+            role = "static"
+            constraints["needs_pivot"] = False
+            constraints["needs_second_pivot"] = False
+            constraints["constraint_type"] = "none"
+            # 确保滑轮半径参数被提取
+            if "pulley_radius" not in params and "radius_px" in params:
+                params["pulley_radius"] = params["radius_px"]
 
         # 传送带类型规整与速度参数透传
         name_lower = str(base_name).lower()

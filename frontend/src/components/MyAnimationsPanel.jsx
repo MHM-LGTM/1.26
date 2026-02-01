@@ -191,11 +191,11 @@ export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
     <>
       <div style={{
         position: 'fixed',
-        top: 80,
-        right: 20,
-        width: 340,
-        height: 'calc(100vh - 100px)',
-        maxHeight: 820,
+        top: '8.8vh',
+        right: '1.5vw',
+        width: '21vw',
+        minWidth: '280px', /* 防止过小 */
+        height: 'calc(100vh - 18.5vh)',
         background: 'linear-gradient(135deg, #ffffff 0%, #fff8e1 100%)',
         borderRadius: 16,
         padding: 16,

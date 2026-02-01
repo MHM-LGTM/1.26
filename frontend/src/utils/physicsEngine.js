@@ -266,6 +266,46 @@ export function runSimulation({
     }
   });
 
+  // ────────────────────────────────────────────────────────────────
+  // 第 4.4 部分：滑轮对象创建
+  // ────────────────────────────────────────────────────────────────
+
+  const pulleys = [];
+
+  objects.forEach((obj, idx) => {
+    // 识别定滑轮类型
+    if (obj.element_type === 'pulley_fixed') {
+      const bodyName = obj.name || `pulley-${idx}`;
+      const body = bodiesMap[bodyName];
+      
+      if (!body) {
+        console.warn(`[滑轮系统] 未找到定滑轮刚体: ${bodyName}`);
+        return;
+      }
+      
+      // 计算滑轮半径（根据轮廓大小）
+      const bounds = body.bounds;
+      const width = bounds.max.x - bounds.min.x;
+      const height = bounds.max.y - bounds.min.y;
+      const radius = Math.min(width, height) / 2;
+      
+      // 确保定滑轮是静态的
+      Body.setStatic(body, true);
+      
+      pulleys.push({
+        body: body,
+        position: body.position,
+        radius: radius,
+        angle: 0,  // 旋转角度（用于显示辐条）
+        isStatic: true,
+        spriteUrl: obj.sprite_data_url,
+        name: bodyName
+      });
+      
+      console.log(`[滑轮系统] 创建定滑轮: ${bodyName}, 半径=${radius.toFixed(1)}px`);
+    }
+  });
+
 
   // ────────────────────────────────────────────────────────────────
   // 第 4.5 部分：约束创建逻辑
@@ -538,20 +578,90 @@ export function runSimulation({
 
   // 绳索系统更新和渲染（即使初始没有绳子也要绑定事件，因为后续可能加载动画）
   const ropeUpdateHandler = () => {
+    // 更新滑轮位置（虽然定滑轮是静态的，但保持位置引用更新）
+    pulleys.forEach(pulley => {
+      pulley.position = pulley.body.position;
+    });
+    
     if (ropes.length > 0) {
       const gravity = { x: 0, y: 0.3 }; // 增加重力让绳子自然下垂更明显
       // 获取所有刚体用于碰撞检测（包括静态和动态）
       const allBodies = Composite.allBodies(engine.world);
       for (const rope of ropes) {
-        rope.update(gravity, width, height, allBodies);
+        rope.update(gravity, width, height, allBodies, pulleys);
+        
+        // 更新滑轮旋转
+        pulleys.forEach(pulley => {
+          rope.updatePulleyRotation(pulley);
+        });
       }
     }
   };
 
+  /**
+   * 渲染滑轮（带旋转辐条）
+   * @param {CanvasRenderingContext2D} ctx - 画布上下文
+   * @param {Array} pulleys - 滑轮数组
+   */
+  const renderPulleys = (ctx, pulleys) => {
+    pulleys.forEach(pulley => {
+      ctx.save();
+      ctx.translate(pulley.position.x, pulley.position.y);
+      ctx.rotate(pulley.angle);  // 旋转画布
+      
+      // 如果没有精灵图，绘制默认滑轮图形
+      if (!pulley.spriteUrl) {
+        // 外圈
+        ctx.beginPath();
+        ctx.arc(0, 0, pulley.radius, 0, Math.PI * 2);
+        ctx.strokeStyle = '#00f5ff';  // 青色（定滑轮）
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        
+        // 凹槽（绳子放置处）
+        ctx.beginPath();
+        ctx.arc(0, 0, pulley.radius - 4, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+        ctx.lineWidth = 6;
+        ctx.stroke();
+      }
+      
+      // 辐条（显示旋转效果）- 总是绘制，即使有精灵图
+      ctx.strokeStyle = 'rgba(0, 245, 255, 0.3)';  // 青色半透明
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 5; i++) {
+        const angle = (i / 5) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(
+          Math.cos(angle) * pulley.radius * 0.7,
+          Math.sin(angle) * pulley.radius * 0.7
+        );
+        ctx.stroke();
+      }
+      
+      // 中心轴
+      ctx.beginPath();
+      ctx.arc(0, 0, 6, 0, Math.PI * 2);
+      ctx.fillStyle = '#00f5ff';
+      ctx.fill();
+      
+      ctx.restore();
+    });
+  };
+
   const ropeRenderHandler = () => {
-    if (ropes.length > 0 && render.context) {
-      for (const rope of ropes) {
-        rope.render(render.context);
+    if (render.context) {
+      // 绘制绳子
+      if (ropes.length > 0) {
+        for (const rope of ropes) {
+          rope.render(render.context);
+        }
+      }
+      
+      // 绘制滑轮（在绳子上方）
+      if (pulleys.length > 0) {
+        renderPulleys(render.context, pulleys);
       }
     }
   };

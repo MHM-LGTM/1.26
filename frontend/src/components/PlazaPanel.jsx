@@ -20,9 +20,8 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
   const [selectedCardId, setSelectedCardId] = useState(null); // 选中的卡片ID
   const [currentPage, setCurrentPage] = useState(0); // 当前页码
   
-  // 分页配置：根据实际卡片宽度计算每行能放多少个，这里假设每行约6-7个卡片（140px宽度）
-  // 两行的话大约是12-14个动画
-  const ITEMS_PER_PAGE = 14; // 每页显示14个动画（2行）
+  // 分页配置：单行显示6个卡片
+  const ITEMS_PER_PAGE = 6; // 每页显示6个动画（1行）
 
   // 加载广场动画列表
   const loadPlazaAnimations = async () => {
@@ -104,13 +103,13 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
   return (
     <div style={{
       position: 'fixed',
-      bottom: 20,
-      top: 680,  // 从画布和信息区域下方开始（80 + 520 + 60 + 20）
-      left: 20,
-      right: 400,  // 为右侧"我的动画"面板留空间
+      bottom: '6vh',
+      top: '70vh',  // 使用视窗高度单位
+      left: '1.5vw',
+      right: '25.5vw',  // 使用视窗宽度单位，为右侧面板留空间
       background: 'linear-gradient(135deg, #ffffff 0%, #fff8e1 100%)',
       borderRadius: 16,
-      padding: 16,
+      padding: '10px 16px 12px 16px',
       boxShadow: '0 4px 12px rgba(255, 152, 0, 0.15)',
       border: '1px solid #000000',
       display: 'flex',
@@ -126,8 +125,8 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
         overflow: 'hidden'
       }}>
         <h3 style={{
-          margin: '0 0 12px 0',
-          fontSize: 18,
+          margin: '0 0 6px 0',
+          fontSize: 14,
           fontWeight: 600,
           color: '#222',
           flexShrink: 0
@@ -173,11 +172,11 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
         <div style={{
           flex: 1,
           display: 'flex',
-          flexWrap: 'wrap',
-          gap: 12,
+          flexWrap: 'nowrap',
+          gap: 8,
           overflowY: 'hidden',
           overflowX: 'hidden',
-          alignContent: 'flex-start',
+          alignItems: 'flex-start',
           paddingRight: 4
         }}>
           {currentAnimations.map((anim) => {
@@ -187,11 +186,8 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
               <div
                 key={anim.id}
                 style={{
-                  padding: isSelected ? '3px' : '0',
-                  transition: 'padding 0.2s',
                   flexShrink: 0,
-                  zIndex: isSelected ? 10 : 1,
-                  width: isSelected ? '126px' : '120px',
+                  width: '180px',
                   boxSizing: 'border-box'
                 }}
               >
@@ -199,27 +195,21 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
                 onClick={() => handleCardClick(anim.id)}
                 style={{
                   width: '100%',
-                  minWidth: 120,
-                  maxWidth: 120,
                   cursor: 'pointer',
                   borderRadius: 12,
                   overflow: 'hidden',
                   border: isSelected ? '2px solid #ff9800' : '1px solid #ffd93d',
                   transition: 'all 0.2s',
                   backgroundColor: '#ffffff',
-                  transform: isSelected ? 'scale(1.05)' : 'scale(1)',
-                  transformOrigin: 'center center',
-                  boxShadow: isSelected ? '0 6px 20px rgba(139, 92, 246, 0.3)' : 'none'
+                  boxShadow: isSelected ? '0 4px 12px rgba(255, 152, 0, 0.3)' : 'none'
                 }}
                 onMouseEnter={(e) => {
                   if (!isSelected) {
-                    e.currentTarget.style.transform = 'translateY(-4px)';
-                    e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.15)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 152, 0, 0.2)';
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!isSelected) {
-                    e.currentTarget.style.transform = 'translateY(0)';
                     e.currentTarget.style.boxShadow = 'none';
                   }
                 }}
@@ -227,7 +217,7 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
               {/* 封面图 */}
               <div style={{
                 width: '100%',
-                height:50,
+                height: 90,
                 background: anim.thumbnail_url 
                   ? '#fffbf0'
                   : 'linear-gradient(135deg, #ff9800 0%, #ff6b35 100%)',

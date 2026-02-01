@@ -80,8 +80,9 @@ export class VerletRope {
      * @param {number} canvasWidth - 画布宽度（用于边界检测）
      * @param {number} canvasHeight - 画布高度（用于边界检测）
      * @param {Array} bodies - Matter.js 刚体数组（用于碰撞检测）
+     * @param {Array} pulleys - 滑轮数组（用于滑轮约束）
      */
-    update(gravity = { x: 0, y: 0.5 }, canvasWidth = 800, canvasHeight = 600, bodies = []) {
+    update(gravity = { x: 0, y: 0.5 }, canvasWidth = 800, canvasHeight = 600, bodies = [], pulleys = []) {
         // 更新附着点位置
         if (this.attachments.start) {
             const body = this.attachments.start.body;
@@ -255,6 +256,15 @@ export class VerletRope {
                 }
             }
             
+            // 滑轮约束求解（定滑轮）
+            if (pulleys && pulleys.length > 0) {
+                for (let pulley of pulleys) {
+                    if (pulley.isStatic) {
+                        this.solveFixedPulleyConstraint(pulley);
+                    }
+                }
+            }
+            
             // 重新固定端点（确保端点位置不变）
             if (this.attachments.start) {
                 const body = this.attachments.start.body;
@@ -332,6 +342,60 @@ export class VerletRope {
                 const fy = (dy / dist) * tensionForce;
                 Body.applyForce(body, body.position, { x: fx, y: fy });
             }
+        }
+    }
+    
+    /**
+     * 解决定滑轮约束（绳子绕过固定滑轮）
+     * 核心算法：将进入滑轮内部的绳子节点推到滑轮边缘
+     * @param {Object} pulley - 滑轮对象 {position: {x, y}, radius, isStatic, angle}
+     */
+    solveFixedPulleyConstraint(pulley) {
+        const minDist = pulley.radius + 2;  // 绳子距离滑轮中心的最小距离
+        
+        for (let i = 1; i < this.points.length - 1; i++) {
+            const p = this.points[i];
+            const dx = p.x - pulley.position.x;
+            const dy = p.y - pulley.position.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            // 如果绳子节点进入滑轮内部，推出去
+            if (dist < minDist && dist > 0.001) {
+                const nx = dx / dist;  // 归一化方向
+                const ny = dy / dist;
+                p.x = pulley.position.x + nx * minDist;
+                p.y = pulley.position.y + ny * minDist;
+            }
+        }
+    }
+    
+    /**
+     * 更新滑轮旋转角度
+     * 核心算法：统计绳子节点的平均切向速度
+     * @param {Object} pulley - 滑轮对象 {position: {x, y}, radius, angle}
+     */
+    updatePulleyRotation(pulley) {
+        let avgVelocity = 0;
+        let count = 0;
+        
+        // 找到在滑轮附近的绳子节点
+        for (let i = 1; i < this.points.length - 1; i++) {
+            const p = this.points[i];
+            const dx = p.x - pulley.position.x;
+            const dy = p.y - pulley.position.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            // 只统计在滑轮附近的节点（半径 + 8px 范围内）
+            if (dist < pulley.radius + 8) {
+                // Verlet 速度：当前位置 - 旧位置
+                avgVelocity += (p.x - p.oldX);
+                count++;
+            }
+        }
+        
+        if (count > 0) {
+            // 转换为角速度（0.03 是调优系数）
+            pulley.angle += (avgVelocity / count) * 0.03;
         }
     }
     

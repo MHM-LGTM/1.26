@@ -41,6 +41,7 @@ class PhysicsParameters(BaseModel):
     rope_length_m: Optional[float] = Field(None, description="绳长（米）")
     initial_angle_deg: Optional[float] = Field(None, description="初始角度（度）")
     radius_px: Optional[float] = Field(None, description="圆形物体半径（像素）")
+    pulley_radius: Optional[float] = Field(None, description="滑轮半径（像素）")
 
 
 class ElementConstraint(BaseModel):

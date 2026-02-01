@@ -48,6 +48,14 @@ export const SPECIAL_ELEMENT_TYPES = {
     defaultPrompt: '请点击选择绳子的第一个连接点',
     defaultSecondPrompt: '请点击选择绳子的第二个连接点',
   },
+  // 定滑轮：不需要特殊交互，作为普通刚体处理
+  pulley_fixed: {
+    needsPivot: false,
+    needsSecondPivot: false,
+    interactionMode: null,
+    defaultPrompt: null,
+    defaultSecondPrompt: null,
+  },
   // 可在此添加更多特殊元素类型...
 };
 
