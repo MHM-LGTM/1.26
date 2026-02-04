@@ -15,6 +15,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { runSimulation } from '../utils/physicsEngine.js';
 import { API_BASE_URL } from '../config/api';
+import { showToast } from '../utils/toast.js';
 
 export default function PlayPage() {
   const { shareCode } = useParams();
@@ -129,7 +130,7 @@ export default function PlayPage() {
       runningSimulation.current = sim;
     } catch (err) {
       console.error('模拟失败:', err);
-      alert('模拟失败：' + err.message);
+      showToast.error('模拟失败：' + err.message);
       setSimulating(false);
     }
   };
@@ -251,7 +252,13 @@ export default function PlayPage() {
         }}>
           <span style={{ color: '#ff9800' }}>❤️ {animation.like_count || 0} 点赞</span>
           {animation.author_name && (
-            <span style={{ color: '#ff9800' }}>👤 作者：{animation.author_name}</span>
+            <span style={{ color: '#666', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+                <circle cx="12" cy="8" r="4" stroke="#ff9800" strokeWidth="2" strokeLinecap="round" />
+                <path d="M6 21C6 17.134 8.686 14 12 14C15.314 14 18 17.134 18 21" stroke="#ff9800" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+              作者：{animation.author_name}
+            </span>
           )}
         </div>
       </div>

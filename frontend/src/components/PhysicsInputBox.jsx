@@ -48,6 +48,7 @@
 
 import React, { useEffect, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import { health as apiHealth, uploadImage, segment, simulate } from '../api/physicsApi.js';
+import { API_BASE_URL } from '../config/api.js';
 import LoadingSpinner from './LoadingSpinner.jsx';
 import ErrorToast from './ErrorToast.jsx';
 import SaveAnimationModal from './SaveAnimationModal.jsx';
@@ -64,9 +65,9 @@ import {
   getElementPivotPrompt,
   getElementSecondPivotPrompt
 } from './physics/elementTypes.js';
+import { showToast } from '../utils/toast.js';
 
 const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClosePlazaInfo }, ref) => {
-  const [serverStatus, setServerStatus] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -196,7 +197,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
       
       if (!sceneData) {
         console.error('[PhysicsInputBox] sceneData 为空');
-        alert('加载失败：动画数据为空');
+        showToast.error('加载失败：动画数据为空');
         return;
       }
 
@@ -296,10 +297,10 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         // 注意：刚体创建逻辑已移至 handleImageLoad 中，在图片加载完成后自动触发
 
         // 提示用户
-        alert('✅ 动画已加载！点击"开始模拟"即可运行');
+        showToast.success('动画已加载！点击"开始模拟"即可运行');
       } catch (error) {
         console.error('[PhysicsInputBox] 加载动画失败:', error);
-        alert(`加载失败：${error.message}`);
+        showToast.error(`加载失败：${error.message}`);
       }
     }
   }));
@@ -324,11 +325,6 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
   };
 
   useEffect(() => {
-    // 健康检查
-    apiHealth()
-      .then((res) => setServerStatus(`后端状态：${res.status}`))
-      .catch(() => setServerStatus('后端状态：连接失败'));
-
     window.addEventListener('resize', syncCanvasSize);
     return () => window.removeEventListener('resize', syncCanvasSize);
   }, []);
@@ -973,7 +969,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
     const isLoggedIn = useAuthStore.getState().isLoggedIn;
 
     if (!isLoggedIn || !token) {
-      alert('请先登录后再保存动画');
+      showToast.warning('请先登录后再保存动画');
       return;
     }
 
@@ -982,7 +978,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
       // Fork 广场动画
       try {
         const response = await fetch(
-          `http://localhost:8000/api/plaza/animations/${currentPlazaAnimationId}/fork`,
+          `${API_BASE_URL}/api/plaza/animations/${currentPlazaAnimationId}/fork`,
           {
             method: 'POST',
             headers: {
@@ -994,15 +990,15 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         const data = await response.json();
         
         if (data.code === 0) {
-          alert('✅ 已保存到我的动画！\n\n你可以在"我的动画"中查看和编辑。');
+          showToast.success('已保存到我的动画！\n\n你可以在"我的动画"中查看和编辑。');
           // 清除广场动画标记
           setCurrentPlazaAnimationId(null);
         } else {
-          alert(`保存失败：${data.message}`);
+          showToast.error(`保存失败：${data.message}`);
         }
       } catch (error) {
         console.error('Fork 动画失败:', error);
-        alert(`保存失败：${error.message}`);
+        showToast.error(`保存失败：${error.message}`);
       }
     } else {
       // 保存/更新我的动画
@@ -1103,7 +1099,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         console.log('[PhysicsInputBox] 检测到冻结的刚体，直接激活物理效果');
         runningSimulation.current.unfreeze();
         setIsSimulationRunning(true);
-        alert('✅ 物理模拟已启动！');
+        showToast.success('物理模拟已启动！');
         setLoading(false);
         return;
       }
@@ -1209,7 +1205,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
           setIsSegmentationDisabled(true);
           console.log('[PhysicsInputBox] 模拟已创建，禁用图像分割功能');
           
-          alert(`${simId}\n模拟已启动！`);
+          showToast.success('模拟已启动！');
         }
       }, 100);
 
@@ -1223,8 +1219,8 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
 
   return (
     <div style={{ position: 'relative' }}>
-      <div className="status-line">
-        {serverStatus}
+      {/* 已注释：预热时间和多模态识别时间提示信息 */}
+      {/* <div className="status-line">
         {embedMs !== null && (
           <span style={{ marginLeft: 12 }}>embedding 预热：{embedMs} ms</span>
         )}
@@ -1237,7 +1233,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         <div style={{ marginTop: 6, fontSize: 13, color: '#b45309', background: '#fff7ed', border: '1px solid #fdba74', borderRadius: 8, padding: '6px 10px' }}>
           多模态识别未启用或失败：{doubaoError || '请配置后端环境变量 ARK_API_KEY（豆包方舟平台）后重启后端'}
         </div>
-      )}
+      )} */}
       <div className="upload-area">
         <div
           className="upload-split-left"
@@ -1563,11 +1559,8 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         ((interactionMode === 'select_pivot' || interactionMode === 'select_first_endpoint' || interactionMode === 'select_second_endpoint') && pendingPivotSelection)) && (
         <div style={{ 
           marginTop: 12, 
-          marginRight: 380,
-          padding: '12px 16px',
-          background: 'linear-gradient(135deg, #ffffff 0%, #fff8e1 100%)',
-          border: '1px solid #000000',
-          borderRadius: 12,
+          marginRight: 400,
+          padding: '8px 4px',
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'space-between',
@@ -1634,61 +1627,45 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
             <>
               {/* 左侧：所有信息横向排列在同一行 */}
               <div style={{ flex: '1 1 auto', minWidth: 280, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-                {/* 识别到的元素 */}
-                {recognizedDetailed && recognizedDetailed.length > 0 && (
-                  <>
-                    <strong style={{ fontSize: 13, color: '#334' }}>识别到的元素：</strong>
-                    {recognizedDetailed.map((elem, idx) => (
-                      <span
-                        key={`${elem.name}-${idx}`}
-                        style={{
-                          display: 'inline-block',
-                          padding: '4px 10px',
-                          borderRadius: 10,
-                          backgroundColor: elem.is_concave ? '#fef3c7' : '#eef',
-                          color: elem.is_concave ? '#92400e' : '#334',
-                          fontSize: 12,
-                          fontWeight: 500
-                        }}
-                      >
-                        {elem.display_name || elem.name}{elem.is_concave ? '（凹面体）' : ''}
-                      </span>
-                    ))}
-                    {assignments.length === 0 && <span style={{ color: '#9ca3af', fontSize: 11 }}>请在图中框选</span>}
-                  </>
-                )}
+                {/* 待选择的元素（动态过滤已选择的元素） */}
+                {recognizedDetailed && recognizedDetailed.length > 0 && (() => {
+                  // 获取已选择元素的名称列表
+                  const selectedNames = assignments.map(a => a.name);
+                  // 过滤出未选择的元素
+                  const remainingElements = recognizedDetailed.filter(elem => !selectedNames.includes(elem.name));
+                  
+                  // 如果还有未选择的元素，则显示
+                  if (remainingElements.length > 0) {
+                    return (
+                      <>
+                        <strong style={{ fontSize: 13, color: '#334' }}>待选择元素：</strong>
+                        {remainingElements.map((elem, idx) => (
+                          <span
+                            key={`${elem.name}-${idx}`}
+                            style={{
+                              display: 'inline-block',
+                              padding: '4px 10px',
+                              borderRadius: 10,
+                              backgroundColor: elem.is_concave ? '#fef3c7' : '#eef',
+                              color: elem.is_concave ? '#92400e' : '#334',
+                              fontSize: 12,
+                              fontWeight: 500
+                            }}
+                          >
+                            {elem.display_name || elem.name}{elem.is_concave ? '（凹面体）' : ''}
+                          </span>
+                        ))}
+                        <span style={{ color: '#9ca3af', fontSize: 11 }}>请在图中框选</span>
+                      </>
+                    );
+                  }
+                  return null;
+                })()}
 
-                {/* 分隔符 */}
-                {recognizedDetailed.length > 0 && assignments.length > 0 && (
-                  <span style={{ color: '#d1d5db', fontSize: 16, fontWeight: 300 }}>|</span>
-                )}
-
-                {/* 已分配的元素列表与完成进度 */}
-                {assignments.length > 0 && (
-                  <>
-                    <strong style={{ fontSize: 13, color: '#334' }}>已选择：</strong>
-                    {assignments.map((a, i) => (
-                      <span
-                        key={a.label + i}
-                        style={{
-                          display: 'inline-block',
-                          padding: '4px 10px',
-                          borderRadius: 10,
-                          background: a.is_concave ? '#fef3c7' : (a.element_type === 'pendulum_bob' ? '#dbeafe' : '#e0f2fe'),
-                          color: a.is_concave ? '#92400e' : '#0369a1',
-                          fontSize: 12,
-                          fontWeight: 500
-                        }}
-                      >
-                        {a.label}{a.is_concave ? '（凹面体）' : ''}{a.element_type === 'pendulum_bob' ? '🔗' : ''}
-                      </span>
-                    ))}
-                    <span style={{ color: '#6b7280', fontSize: 12 }}>完成 {assignments.length}/{recognizedDetailed.length}</span>
-                  </>
-                )}
-
-                {/* 分隔符 */}
-                {constraintRelations.length > 0 && (
+                {/* 分隔符 - 仅在有待选择元素和约束关系时显示 */}
+                {recognizedDetailed && recognizedDetailed.length > 0 && 
+                 assignments.map(a => a.name).length < recognizedDetailed.length && 
+                 constraintRelations.length > 0 && (
                   <span style={{ color: '#d1d5db', fontSize: 16, fontWeight: 300 }}>|</span>
                 )}
 
@@ -1752,7 +1729,11 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
                       alignItems: 'center',
                       gap: 4
                     }}>
-                      👤 {plazaAnimationInfo.author_name}
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+                        <circle cx="12" cy="8" r="4" stroke="#ff9800" strokeWidth="2" strokeLinecap="round" />
+                        <path d="M6 21C6 17.134 8.686 14 12 14C15.314 14 18 17.134 18 21" stroke="#ff9800" strokeWidth="2" strokeLinecap="round" />
+                      </svg>
+                      {plazaAnimationInfo.author_name}
                     </span>
                   )}
                   

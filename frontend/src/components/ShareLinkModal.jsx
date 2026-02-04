@@ -16,6 +16,7 @@
 import React, { useState, useEffect } from 'react';
 import useAuthStore from '../store/authStore';
 import { API_BASE_URL, APP_BASE_URL } from '../config/api';
+import { showToast } from '../utils/toast.js';
 
 export default function ShareLinkModal({ isOpen, onClose, animationId, existingShareCode = null }) {
   const [shareUrl, setShareUrl] = useState('');
@@ -38,7 +39,7 @@ export default function ShareLinkModal({ isOpen, onClose, animationId, existingS
 
     // 否则需要生成新的分享链接（需要登录且是自己的动画）
     if (!isLoggedIn || !token) {
-      alert('此动画还没有分享链接');
+      showToast.warning('此动画还没有分享链接');
       onClose();
       return;
     }
@@ -61,12 +62,12 @@ export default function ShareLinkModal({ isOpen, onClose, animationId, existingS
         if (data.code === 0) {
           setShareUrl(data.data.share_url);
         } else {
-          alert(`生成失败：${data.message}`);
+          showToast.error(`生成失败：${data.message}`);
           onClose();
         }
       } catch (error) {
         console.error('生成分享链接失败:', error);
-        alert(`生成失败：${error.message}`);
+        showToast.error(`生成失败：${error.message}`);
         onClose();
       } finally {
         setLoading(false);

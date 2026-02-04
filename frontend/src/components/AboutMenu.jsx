@@ -67,7 +67,25 @@ export default function AboutMenu() {
           className="user-menu-trigger" 
           onClick={() => setIsOpen(!isOpen)}
         >
-          关于 ▼
+          <span>关于</span>
+          <svg 
+            width="12" 
+            height="12" 
+            viewBox="0 0 12 12" 
+            fill="none" 
+            style={{ 
+              transition: 'transform 0.2s',
+              transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)'
+            }}
+          >
+            <path 
+              d="M2.5 4.5L6 8L9.5 4.5" 
+              stroke="currentColor" 
+              strokeWidth="1.5" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
+            />
+          </svg>
         </button>
 
         {isOpen && (

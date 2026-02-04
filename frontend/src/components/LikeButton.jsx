@@ -17,6 +17,7 @@
 import React, { useState, useEffect } from 'react';
 import useAuthStore from '../store/authStore';
 import { API_BASE_URL } from '../config/api';
+import { showToast } from '../utils/toast.js';
 
 export default function LikeButton({ animationId, initialLikeCount = 0, size = 'medium' }) {
   const [liked, setLiked] = useState(false);
@@ -63,7 +64,7 @@ export default function LikeButton({ animationId, initialLikeCount = 0, size = '
     e.stopPropagation(); // 阻止事件冒泡
 
     if (!isLoggedIn || !token) {
-      alert('请先登录后再点赞');
+      showToast.warning('请先登录后再点赞');
       return;
     }
 
@@ -88,7 +89,7 @@ export default function LikeButton({ animationId, initialLikeCount = 0, size = '
           setLiked(false);
           setLikeCount(data.data.like_count);
         } else {
-          alert(data.message);
+          showToast.error(data.message);
         }
       } else {
         // 点赞
@@ -107,12 +108,12 @@ export default function LikeButton({ animationId, initialLikeCount = 0, size = '
           setLiked(true);
           setLikeCount(data.data.like_count);
         } else {
-          alert(data.message);
+          showToast.error(data.message);
         }
       }
     } catch (error) {
       console.error('点赞操作失败:', error);
-      alert('操作失败，请重试');
+      showToast.error('操作失败，请重试');
     } finally {
       setLoading(false);
     }

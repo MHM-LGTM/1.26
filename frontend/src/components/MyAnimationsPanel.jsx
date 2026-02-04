@@ -15,6 +15,7 @@ import React, { useState, useEffect } from 'react';
 import useAuthStore from '../store/authStore';
 import ShareLinkModal from './ShareLinkModal.jsx';
 import { API_BASE_URL } from '../config/api';
+import { showToast } from '../utils/toast.js';
 
 export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
   const [animations, setAnimations] = useState([]);
@@ -125,11 +126,11 @@ export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
         // 调用父组件传入的加载函数
         onLoadAnimation(sceneData);
       } else {
-        alert(`加载失败：${data.message}`);
+        showToast.error(`加载失败：${data.message}`);
       }
     } catch (error) {
       console.error('加载动画失败:', error);
-      alert(`加载失败：${error.message}`);
+      showToast.error(`加载失败：${error.message}`);
     }
   };
 
@@ -150,15 +151,15 @@ export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
       const data = await response.json();
       
       if (data.code === 0) {
-        alert('删除成功');
+        showToast.success('删除成功');
         loadAnimations(); // 刷新列表
         setMenuOpen(null); // 关闭菜单
       } else {
-        alert(`删除失败：${data.message}`);
+        showToast.error(`删除失败：${data.message}`);
       }
     } catch (error) {
       console.error('删除动画失败:', error);
-      alert(`删除失败：${error.message}`);
+      showToast.error(`删除失败：${error.message}`);
     }
   };
 
@@ -175,15 +176,15 @@ export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
       const data = await response.json();
       
       if (data.code === 0) {
-        alert('✅ 已上传到动画广场！');
+        showToast.success('已上传到动画广场！');
         loadAnimations(); // 刷新列表
         setMenuOpen(null); // 关闭菜单
       } else {
-        alert(`上传失败：${data.message}`);
+        showToast.error(`上传失败：${data.message}`);
       }
     } catch (error) {
       console.error('上传动画失败:', error);
-      alert(`上传失败：${error.message}`);
+      showToast.error(`上传失败：${error.message}`);
     }
   };
 
@@ -451,7 +452,7 @@ export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
               key={`placeholder-${index}`}
               onClick={() => {
                 if (!isLoggedIn || !token) {
-                  alert('请先登录后再创建动画');
+                  showToast.warning('请先登录后再创建动画');
                 } else if (onUploadClick) {
                   onUploadClick();
                 }
@@ -624,12 +625,12 @@ export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
                   });
                   const data = await response.json();
                   if (data.code === 0) {
-                    alert('已从广场下架');
+                    showToast.success('已从广场下架');
                     loadAnimations();
                     setMenuOpen(null);
                   }
                 } catch (error) {
-                  alert('下架失败');
+                  showToast.error('下架失败');
                 }
               }}
               style={{

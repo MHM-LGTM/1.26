@@ -18,6 +18,7 @@ from fastapi.staticfiles import StaticFiles
 import os
 
 from .routers.physics_router import router as physics_router
+from .routers.electric_router import router as electric_router
 from .routers.auth_router import router as auth_router
 from .routers.animation_router import router as animation_router
 from .routers.feedback_router import router as feedback_router
@@ -48,6 +49,7 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 # 路由挂载（可根据需要调整 prefix）
 app.include_router(physics_router, prefix="/physics", tags=["physics"])
+app.include_router(electric_router, prefix="/electric", tags=["electric"])  # 电学场景路由
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(animation_router, prefix="/api", tags=["animations"])
 app.include_router(feedback_router, tags=["feedback"])

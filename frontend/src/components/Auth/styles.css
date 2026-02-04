@@ -303,8 +303,9 @@
   transition: all 0.2s;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   color: #222;
+  font-weight: 500;
 }
 
 .user-menu-trigger:hover {
@@ -344,10 +345,16 @@
   padding: 12px 16px;
   font-size: 14px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s;
   display: flex;
   align-items: center;
   gap: 8px;
+  color: #222;
+}
+
+.user-menu-item svg {
+  color: #ff9800;
+  transition: transform 0.2s;
 }
 
 .user-menu-item:first-child {
@@ -359,7 +366,11 @@
 }
 
 .user-menu-item:hover {
-  background: #f3f4f6;
+  background: rgba(255, 152, 0, 0.1);
+}
+
+.user-menu-item:hover svg {
+  transform: translateX(2px);
 }
 
 .user-menu-divider {

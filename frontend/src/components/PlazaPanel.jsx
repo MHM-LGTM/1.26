@@ -13,6 +13,7 @@
 import React, { useState, useEffect } from 'react';
 import LikeButton from './LikeButton.jsx';
 import { API_BASE_URL } from '../config/api';
+import { showToast } from '../utils/toast.js';
 
 export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
   const [animations, setAnimations] = useState([]);
@@ -92,11 +93,11 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
           });
         }
       } else {
-        alert(`加载失败：${data.message}`);
+        showToast.error(`加载失败：${data.message}`);
       }
     } catch (error) {
       console.error('加载广场动画失败:', error);
-      alert(`加载失败：${error.message}`);
+      showToast.error(`加载失败：${error.message}`);
     }
   };
 
@@ -284,7 +285,13 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
                     size="small"
                   />
                   {anim.author_name && (
-                    <span style={{ fontSize: 10, color: '#f59e0b' }}>👤 {anim.author_name}</span>
+                    <span style={{ fontSize: 10, color: '#666', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+                        <circle cx="12" cy="8" r="4" stroke="#ff9800" strokeWidth="2" strokeLinecap="round" />
+                        <path d="M6 21C6 17.134 8.686 14 12 14C15.314 14 18 17.134 18 21" stroke="#ff9800" strokeWidth="2" strokeLinecap="round" />
+                      </svg>
+                      {anim.author_name}
+                    </span>
                   )}
                 </div>
               </div>

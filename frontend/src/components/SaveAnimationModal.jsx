@@ -17,6 +17,7 @@
 import React, { useState } from 'react';
 import useAuthStore from '../store/authStore';
 import { API_BASE_URL } from '../config/api';
+import { showToast } from '../utils/toast.js';
 
 export default function SaveAnimationModal({ isOpen, onClose, sceneData, getSceneData }) {
   // 优先使用 getSceneData 函数（动态获取最新数据），否则用传入的 sceneData
@@ -131,13 +132,13 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
   const handleSave = async () => {
     // 检查登录状态
     if (!isLoggedIn || !token) {
-      alert('请先登录后再保存动画');
+      showToast.warning('请先登录后再保存动画');
       return;
     }
 
     // 检查必填字段
     if (!title.trim()) {
-      alert('请输入动画名称');
+      showToast.warning('请输入动画名称');
       return;
     }
 
@@ -146,7 +147,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
     
     // 检查场景数据
     if (!currentSceneData) {
-      alert('场景数据不存在，请重新运行模拟');
+      showToast.error('场景数据不存在，请重新运行模拟');
       return;
     }
 
@@ -216,7 +217,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
         
         if (dontAsk) {
           // 用户选择了"不再提醒"，直接关闭
-          alert('✅ 保存成功！');
+          showToast.success('保存成功！');
           onClose();
           setTitle('');
           setDescription('');
@@ -225,11 +226,11 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
           setShowPublishPrompt(true);
         }
       } else {
-        alert(`保存失败：${data.message || '未知错误'}`);
+        showToast.error(`保存失败：${data.message || '未知错误'}`);
       }
     } catch (error) {
       console.error('保存动画失败:', error);
-      alert(`保存失败：${error.message || '网络错误'}`);
+      showToast.error(`保存失败：${error.message || '网络错误'}`);
     } finally {
       setSaving(false);
     }
@@ -255,13 +256,13 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
           localStorage.setItem('dontAskPublish', 'true');
         }
         
-        alert('✅ 已保存到我的动画并上传到广场！');
+        showToast.success('已保存到我的动画并上传到广场！');
         handleCloseAll();
       } else {
-        alert(`上传失败：${data.message}`);
+        showToast.error(`上传失败：${data.message}`);
       }
     } catch (error) {
-      alert(`上传失败：${error.message}`);
+      showToast.error(`上传失败：${error.message}`);
     }
   };
 
@@ -272,7 +273,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
       localStorage.setItem('dontAskPublish', 'true');
     }
     
-    alert('✅ 保存成功！');
+    showToast.success('保存成功！');
     handleCloseAll();
   };
 

@@ -2,6 +2,8 @@ backend/app/checkpoints/
 frontend/node_modules/
 myenv/
 Python-3.12.3/
+*_venv/
+venv/
 .env
 .env.local
 frontend/.env
@@ -25,3 +27,9 @@ __pycache__/
 
 # Logs
 *.log
+
+# Archive files
+*.zip
+*.rar
+*.tar.gz
+*.7z

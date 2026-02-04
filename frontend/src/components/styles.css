@@ -26,6 +26,45 @@ body {
   background-attachment: fixed;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
     'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji';
+  position: relative;
+}
+
+/* 物理主题背景装饰 */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.32;
+  background-image: 
+    url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600"%3E%3Cg stroke="%23ff9800" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"%3E%3C!-- 单摆 --%3E%3Ccircle cx="50" cy="30" r="3" stroke-width="2"/%3E%3Cline x1="50" y1="30" x2="50" y2="80" stroke-width="1.5"/%3E%3Ccircle cx="50" cy="85" r="8" stroke-width="2"/%3E%3Ccircle cx="720" cy="50" r="3" stroke-width="2"/%3E%3Cline x1="720" y1="50" x2="720" y2="110" stroke-width="1.5"/%3E%3Ccircle cx="720" cy="115" r="8" stroke-width="2"/%3E%3Ccircle cx="150" cy="520" r="3" stroke-width="2"/%3E%3Cline x1="150" y1="520" x2="150" y2="570" stroke-width="1.5"/%3E%3Ccircle cx="150" cy="575" r="8" stroke-width="2"/%3E%3C!-- 滑轮系统 --%3E%3Ccircle cx="650" cy="450" r="15" stroke-width="2"/%3E%3Ccircle cx="650" cy="450" r="10" stroke-width="1.5"/%3E%3Cline x1="635" y1="450" x2="635" y2="500" stroke-width="1.5"/%3E%3Crect x="628" y="500" width="14" height="12" stroke-width="2"/%3E%3Ccircle cx="400" cy="30" r="15" stroke-width="2"/%3E%3Ccircle cx="400" cy="30" r="10" stroke-width="1.5"/%3E%3Cline x1="385" y1="30" x2="385" y2="70" stroke-width="1.5"/%3E%3Crect x="378" y="70" width="14" height="12" stroke-width="2"/%3E%3C!-- 地面上的滑块 --%3E%3Cline x1="180" y1="100" x2="280" y2="100" stroke-width="2.5"/%3E%3Crect x="195" y="80" width="22" height="20" stroke-width="2"/%3E%3Crect x="235" y="80" width="22" height="20" stroke-width="2"/%3E%3Cline x1="177" y1="102" x2="183" y2="102" stroke-width="1.5"/%3E%3Cline x1="177" y1="104" x2="183" y2="104" stroke-width="1.5"/%3E%3Cline x1="500" y1="120" x2="600" y2="120" stroke-width="2.5"/%3E%3Crect x="515" y="100" width="22" height="20" stroke-width="2"/%3E%3Crect x="555" y="100" width="22" height="20" stroke-width="2"/%3E%3Cline x1="497" y1="122" x2="503" y2="122" stroke-width="1.5"/%3E%3Cline x1="180" y1="420" x2="280" y2="420" stroke-width="2.5"/%3E%3Crect x="195" y="400" width="22" height="20" stroke-width="2"/%3E%3Crect x="235" y="400" width="22" height="20" stroke-width="2"/%3E%3Cline x1="177" y1="422" x2="183" y2="422" stroke-width="1.5"/%3E%3C!-- 斜面+滑块 --%3E%3Cpath d="M300 180L400 180L300 120Z" stroke-width="2"/%3E%3Crect x="330" y="135" width="18" height="18" stroke-width="2" transform="rotate(-25 339 144)"/%3E%3Cline x1="297" y1="182" x2="303" y2="182" stroke-width="1.5"/%3E%3Cpath d="M450 520L550 520L450 460Z" stroke-width="2"/%3E%3Crect x="480" y="475" width="18" height="18" stroke-width="2" transform="rotate(-25 489 484)"/%3E%3Cline x1="447" y1="522" x2="453" y2="522" stroke-width="1.5"/%3E%3Cpath d="M600 300L700 300L600 240Z" stroke-width="2"/%3E%3Crect x="630" y="255" width="18" height="18" stroke-width="2" transform="rotate(-25 639 264)"/%3E%3Cline x1="597" y1="302" x2="603" y2="302" stroke-width="1.5"/%3E%3C!-- 木板上的滑块 --%3E%3Cline x1="50" y1="250" x2="150" y2="250" stroke-width="2.5"/%3E%3Crect x="60" y="242" width="80" height="8" stroke-width="2"/%3E%3Crect x="80" y="224" width="20" height="18" stroke-width="2"/%3E%3Cline x1="47" y1="252" x2="53" y2="252" stroke-width="1.5"/%3E%3Cline x1="550" y1="450" x2="650" y2="450" stroke-width="2.5"/%3E%3Crect x="560" y="442" width="80" height="8" stroke-width="2"/%3E%3Crect x="580" y="424" width="20" height="18" stroke-width="2"/%3E%3Cline x1="547" y1="452" x2="553" y2="452" stroke-width="1.5"/%3E%3C!-- 抛物线轨迹 --%3E%3Cpath d="M100 380Q180 340 260 380" stroke-width="2" stroke-dasharray="4,4"/%3E%3Ccircle cx="120" cy="373" r="4" stroke-width="2"/%3E%3Ccircle cx="180" cy="353" r="4" stroke-width="2"/%3E%3Ccircle cx="240" cy="373" r="4" stroke-width="2"/%3E%3Cpath d="M450 220Q530 180 610 220" stroke-width="2" stroke-dasharray="4,4"/%3E%3Ccircle cx="470" cy="213" r="4" stroke-width="2"/%3E%3Ccircle cx="530" cy="193" r="4" stroke-width="2"/%3E%3Ccircle cx="590" cy="213" r="4" stroke-width="2"/%3E%3C!-- 电压表 --%3E%3Ccircle cx="70" cy="480" r="20" stroke-width="2"/%3E%3Ctext x="62" y="487" font-size="14" fill="none" stroke="%23ff9800" stroke-width="0.5"%3EV%3C/text%3E%3Cline x1="70" y1="458" x2="70" y2="445" stroke-width="2"/%3E%3Cline x1="70" y1="502" x2="70" y2="515" stroke-width="2"/%3E%3Ccircle cx="330" cy="530" r="20" stroke-width="2"/%3E%3Ctext x="322" y="537" font-size="14" fill="none" stroke="%23ff9800" stroke-width="0.5"%3EV%3C/text%3E%3Cline x1="330" y1="508" x2="330" y2="495" stroke-width="2"/%3E%3C!-- 电流表 --%3E%3Ccircle cx="730" cy="530" r="20" stroke-width="2"/%3E%3Ctext x="722" y="537" font-size="14" fill="none" stroke="%23ff9800" stroke-width="0.5"%3EA%3C/text%3E%3Cline x1="708" y1="530" x2="695" y2="530" stroke-width="2"/%3E%3Cline x1="752" y1="530" x2="765" y2="530" stroke-width="2"/%3E%3C!-- 电路图 --%3E%3Cpath d="M600 550L600 510L680 510L680 550L600 550" stroke-width="2"/%3E%3Ccircle cx="640" cy="510" r="12" stroke-width="2"/%3E%3Cline x1="633" y1="510" x2="647" y2="510" stroke-width="2"/%3E%3Cline x1="640" y1="503" x2="640" y2="517" stroke-width="2"/%3E%3Cpath d="M650 525L660 518L670 532L680 518L690 530" stroke-width="2"/%3E%3Cpath d="M50 150L50 110L120 110L120 150L50 150" stroke-width="2"/%3E%3Crect x="60" y="120" width="10" height="20" stroke-width="2"/%3E%3Crect x="75" y="123" width="10" height="14" stroke-width="2"/%3E%3Cline x1="50" y1="110" x2="120" y2="110" stroke-width="2"/%3E%3Cline x1="50" y1="150" x2="120" y2="150" stroke-width="2"/%3E%3Cpath d="M95 130L103 124L111 136L119 124L127 134" stroke-width="2"/%3E%3C!-- 磁场 --%3E%3Crect x="350" y="350" width="22" height="55" stroke-width="2"/%3E%3Ctext x="355" y="380" font-size="14" fill="none" stroke="%23ff9800" stroke-width="0.5"%3EN%3C/text%3E%3Ctext x="356" y="398" font-size="14" fill="none" stroke="%23ff9800" stroke-width="0.5"%3ES%3C/text%3E%3Cpath d="M320 365Q335 362 350 365" stroke-width="1.5"/%3E%3Cpath d="M320 378Q335 375 350 378" stroke-width="1.5"/%3E%3Cpath d="M320 391Q335 388 350 391" stroke-width="1.5"/%3E%3Cpath d="M375 365Q390 368 405 365" stroke-width="1.5"/%3E%3Cpath d="M375 378Q390 381 405 378" stroke-width="1.5"/%3E%3Cpath d="M375 391Q390 394 405 391" stroke-width="1.5"/%3E%3C!-- 杠杆 --%3E%3Cline x1="480" y1="370" x2="600" y2="350" stroke-width="2.5"/%3E%3Cpath d="M535 358L535 372L545 372L545 358Z" stroke-width="2"/%3E%3Crect x="477" y="362" width="14" height="12" stroke-width="2"/%3E%3Crect x="595" y="342" width="14" height="12" stroke-width="2"/%3E%3C!-- 力矢量 --%3E%3Cline x1="250" y1="280" x2="320" y2="250" stroke-width="2"/%3E%3Cpolygon points="316,252 323,249 318,258" stroke="%23ff9800" stroke-width="2"/%3E%3Cline x1="250" y1="280" x2="320" y2="310" stroke-width="2"/%3E%3Cpolygon points="316,308 323,311 318,302" stroke="%23ff9800" stroke-width="2"/%3E%3Cline x1="250" y1="280" x2="350" y2="280" stroke-width="2.5" stroke-dasharray="3,3"/%3E%3Cpolygon points="345,278 352,280 345,282" stroke="%23ff9800" stroke-width="2"/%3E%3C/g%3E%3C/svg%3E');
+  background-repeat: repeat;
+  background-size: 400px 300px;
+  animation: physics-bg-subtle 60s ease-in-out infinite;
+}
+
+@keyframes physics-bg-subtle {
+  0%, 100% { 
+    transform: translate(0, 0) scale(1);
+  }
+  25% { 
+    transform: translate(5px, -5px) scale(1.01);
+  }
+  50% { 
+    transform: translate(-3px, 3px) scale(0.99);
+  }
+  75% { 
+    transform: translate(3px, -3px) scale(1.01);
+  }
+}
+
+body > * {
+  position: relative;
+  z-index: 1;
 }
 
 .page-wrapper {
@@ -39,7 +78,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 2px;
+  margin-bottom: 20px;
 }
 
 .topbar-right {
@@ -111,6 +150,12 @@ body {
   transform: translateY(-1px);
 }
 
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .selector {
   display: flex;
   gap: 12px;
@@ -131,6 +176,43 @@ body {
   background: linear-gradient(135deg, #fff8e1 0%, #ffeaa7 100%);
   border-color: var(--primary-light);
   box-shadow: 0 2px 8px rgba(255, 152, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+/* 场景切换按钮 */
+.scene-selector {
+  display: flex;
+  gap: 10px;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-top: 4px;
+}
+
+.scene-btn {
+  padding: 8px 16px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 600;
+  font-size: 15px;
+  min-width: 120px;
+}
+
+.scene-btn:hover {
+  background: rgba(255, 152, 0, 0.15);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.scene-btn.active {
+  background: linear-gradient(135deg, #fff8e1 0%, #ffeaa7 100%);
+  color: var(--text-primary);
+  box-shadow: 0 3px 8px rgba(255, 152, 0, 0.25);
   transform: translateY(-1px);
 }
 

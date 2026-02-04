@@ -3,13 +3,17 @@
  * ---------------------------------
  * 功能：
  * - 顶部显示模式切换按钮和登录状态；
- * - 中部区域承载 PhysicsInputBox 组件（上传与开始模拟）。
+ * - 中部区域承载 PhysicsInputBox 或 ElectricInputBox 组件（根据场景类型切换）。
  * - 集成登录/注册功能
+ * 
+ * 2026-02-01 更新：
+ * - 新增电学场景支持，通过 sceneType 状态切换画布组件
+ * - 电学场景使用独立的 ElectricInputBox 组件（不依赖 Matter.js）
  */
 
 import React, { useState, useRef } from 'react';
-import InputSelector from '../components/InputSelector.jsx';
 import PhysicsInputBox from '../components/PhysicsInputBox.jsx';
+import ElectricInputBox from '../components/ElectricInputBox.jsx';
 import MyAnimationsPanel from '../components/MyAnimationsPanel.jsx';
 import PlazaPanel from '../components/PlazaPanel.jsx';
 import LoginModal from '../components/Auth/LoginModal.jsx';
@@ -23,18 +27,32 @@ export default function PhysicsPage() {
   const [currentAnimationSource, setCurrentAnimationSource] = useState(null); // 'my' | 'plaza' | null
   const isLoggedIn = useAuthStore((state) => state.isLoggedIn);
   
-  // 用于访问 PhysicsInputBox 的加载函数
+  // 场景类型：'mechanics' (运动学/力学) | 'electric' (电学)
+  const [sceneType, setSceneType] = useState('mechanics');
+  
+  // 用于访问 PhysicsInputBox 或 ElectricInputBox 的加载函数
   const physicsBoxRef = useRef(null);
+  const electricBoxRef = useRef(null);
 
   // 处理动画加载
   const handleLoadAnimation = (sceneData, plazaAnimationId = null) => {
     console.log('[PhysicsPage] 接收到加载请求，scene_data keys:', Object.keys(sceneData || {}));
     console.log('[PhysicsPage] plazaAnimationId:', plazaAnimationId);
-    // 将 sceneData 传递给 PhysicsInputBox
-    if (physicsBoxRef.current?.loadAnimation) {
-      physicsBoxRef.current.loadAnimation(sceneData, plazaAnimationId);
+    console.log('[PhysicsPage] 当前场景类型:', sceneType);
+    
+    // 根据当前场景类型，将 sceneData 传递给对应的组件
+    if (sceneType === 'mechanics') {
+      if (physicsBoxRef.current?.loadAnimation) {
+        physicsBoxRef.current.loadAnimation(sceneData, plazaAnimationId);
+      } else {
+        console.error('[PhysicsPage] physicsBoxRef.current.loadAnimation 不存在');
+      }
     } else {
-      console.error('[PhysicsPage] physicsBoxRef.current.loadAnimation 不存在');
+      if (electricBoxRef.current?.loadAnimation) {
+        electricBoxRef.current.loadAnimation(sceneData, plazaAnimationId);
+      } else {
+        console.error('[PhysicsPage] electricBoxRef.current.loadAnimation 不存在');
+      }
     }
   };
 
@@ -48,7 +66,24 @@ export default function PhysicsPage() {
   return (
     <div className="page-wrapper">
       <div className="topbar">
-        <InputSelector />
+        {/* 左上角：场景切换按钮 */}
+        <div className="topbar-left">
+          {/* 场景类型切换按钮 */}
+          <div className="scene-selector">
+            <button
+              className={`scene-btn ${sceneType === 'mechanics' ? 'active' : ''}`}
+              onClick={() => setSceneType('mechanics')}
+            >
+              运动学/力学
+            </button>
+            <button
+              className={`scene-btn ${sceneType === 'electric' ? 'active' : ''}`}
+              onClick={() => setSceneType('electric')}
+            >
+              电学
+            </button>
+          </div>
+        </div>
         
         {/* 右上角：登录状态与关于 */}
         <div className="topbar-right">
@@ -66,12 +101,22 @@ export default function PhysicsPage() {
         </div>
       </div>
 
-      <PhysicsInputBox 
-        ref={physicsBoxRef}
-        animationSource={currentAnimationSource}
-        plazaAnimationInfo={plazaAnimationInfo}
-        onClosePlazaInfo={() => setPlazaAnimationInfo(null)}
-      />
+      {/* 根据场景类型渲染不同的画布组件 */}
+      {sceneType === 'mechanics' ? (
+        <PhysicsInputBox 
+          ref={physicsBoxRef}
+          animationSource={currentAnimationSource}
+          plazaAnimationInfo={plazaAnimationInfo}
+          onClosePlazaInfo={() => setPlazaAnimationInfo(null)}
+        />
+      ) : (
+        <ElectricInputBox 
+          ref={electricBoxRef}
+          animationSource={currentAnimationSource}
+          plazaAnimationInfo={plazaAnimationInfo}
+          onClosePlazaInfo={() => setPlazaAnimationInfo(null)}
+        />
+      )}
 
       {/* 阶段二新增：我的动画面板 */}
       <MyAnimationsPanel 
@@ -81,9 +126,15 @@ export default function PhysicsPage() {
           setCurrentAnimationSource('my'); // 标记为我的动画
         }}
         onUploadClick={() => {
-          // 触发 PhysicsInputBox 的上传功能
-          if (physicsBoxRef.current?.triggerUpload) {
-            physicsBoxRef.current.triggerUpload();
+          // 根据当前场景类型触发对应组件的上传功能
+          if (sceneType === 'mechanics') {
+            if (physicsBoxRef.current?.triggerUpload) {
+              physicsBoxRef.current.triggerUpload();
+            }
+          } else {
+            if (electricBoxRef.current?.triggerUpload) {
+              electricBoxRef.current.triggerUpload();
+            }
           }
         }}
       />
