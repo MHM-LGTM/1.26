@@ -1,28 +1,28 @@
-/* Toast 提示组件样式 */
+/* Toast 提示组件样式 - 纯文本风格 */
 
 .toast-container {
   position: fixed;
   top: 20px;
   left: 50%;
-  transform: translateX(-50%) translateY(-100px);
+  transform: translateX(-50%) translateY(-20px);
   z-index: 9999;
   
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
   
-  padding: 14px 24px;
-  min-width: 280px;
+  padding: 0;
+  min-width: auto;
   max-width: 500px;
   
-  border-radius: 16px;
-  border: 1px solid #000000;
-  background: linear-gradient(135deg, #ffffff 0%, #fffef8 100%);
-  box-shadow: 0 8px 24px rgba(255, 152, 0, 0.25), 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
   
   opacity: 0;
-  transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  pointer-events: auto;
+  transition: all 0.3s ease;
+  pointer-events: none;
 }
 
 /* 显示动画 */
@@ -33,47 +33,42 @@
 
 /* 隐藏动画 */
 .toast-container.toast-hide {
-  transform: translateX(-50%) translateY(-100px);
+  transform: translateX(-50%) translateY(-20px);
   opacity: 0;
 }
 
 .toast-icon {
-  font-size: 22px;
-  line-height: 1;
-  flex-shrink: 0;
+  display: none;
 }
 
 .toast-message {
   flex: 1;
-  color: var(--text-primary, #222);
-  font-size: 15px;
-  font-weight: 500;
-  line-height: 1.5;
+  color: #333;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.4;
   white-space: pre-line;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
 }
 
 /* 成功类型 */
-.toast-success {
-  background: linear-gradient(135deg, #f0fff4 0%, #c6f6d5 100%);
-  border-color: #38a169;
+.toast-success .toast-message {
+  color: #16a34a;
 }
 
 /* 错误类型 */
-.toast-error {
-  background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%);
-  border-color: #e53e3e;
+.toast-error .toast-message {
+  color: #dc2626;
 }
 
 /* 警告类型 */
-.toast-warning {
-  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-  border-color: #f59e0b;
+.toast-warning .toast-message {
+  color: #ea580c;
 }
 
-/* 信息类型（默认暖黄色调） */
-.toast-info {
-  background: linear-gradient(135deg, #fffbf0 0%, #ffeaa7 100%);
-  border-color: #ff9800;
+/* 信息类型 */
+.toast-info .toast-message {
+  color: #2563eb;
 }
 
 /* 响应式：移动端适配 */
@@ -81,11 +76,7 @@
   .toast-container {
     min-width: 0;
     max-width: calc(100vw - 40px);
-    padding: 12px 18px;
-  }
-  
-  .toast-icon {
-    font-size: 20px;
+    padding: 0;
   }
   
   .toast-message {

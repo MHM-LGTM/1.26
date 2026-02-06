@@ -21,10 +21,10 @@ export class VerletRope {
      * @param {number} endX - 结束点 X 坐标
      * @param {number} endY - 结束点 Y 坐标
      * @param {number} segments - 绳子段数（默认 15）
-     * @param {number} stiffness - 刚度系数（0-1，默认 0.8，更柔软自然）
+     * @param {number} stiffness - 刚度系数（0-1，默认 0.95，更硬更真实）
      * @param {number} damping - 阻尼系数（0-1，默认 0.98）
      */
-    constructor(startX, startY, endX, endY, segments = 15, stiffness = 0.8, damping = 0.99) {
+    constructor(startX, startY, endX, endY, segments = 15, stiffness = 0.95, damping = 0.98) {
         this.segments = segments;
         this.stiffness = stiffness;
         this.damping = damping;
@@ -48,8 +48,8 @@ export class VerletRope {
         }
         
         // 创建约束（每个点与下一个点的距离）
-        // 留更多余量让绳子更柔软自然（1.5倍）
-        const segmentLength = Math.sqrt(dx * dx + dy * dy) * 1.5;
+        // 更紧绷的初始状态（1.02倍），模拟真实绳子的物理特性
+        const segmentLength = Math.sqrt(dx * dx + dy * dy) * 1.02;
         for (let i = 0; i < segments; i++) {
             this.constraints.push({
                 p1: i,
@@ -76,13 +76,13 @@ export class VerletRope {
     
     /**
      * 更新物理状态
-     * @param {Object} gravity - 重力向量 {x, y}（默认 {x: 0, y: 0.5}）
+     * @param {Object} gravity - 重力向量 {x, y}（默认 {x: 0, y: 0.15}）
      * @param {number} canvasWidth - 画布宽度（用于边界检测）
      * @param {number} canvasHeight - 画布高度（用于边界检测）
      * @param {Array} bodies - Matter.js 刚体数组（用于碰撞检测）
      * @param {Array} pulleys - 滑轮数组（用于滑轮约束）
      */
-    update(gravity = { x: 0, y: 0.5 }, canvasWidth = 800, canvasHeight = 600, bodies = [], pulleys = []) {
+    update(gravity = { x: 0, y: 0.15 }, canvasWidth = 800, canvasHeight = 600, bodies = [], pulleys = []) {
         // 更新附着点位置
         if (this.attachments.start) {
             const body = this.attachments.start.body;
@@ -189,21 +189,26 @@ export class VerletRope {
                 
                 if (dist < 0.0001) continue;
                 
-                // 只在绳子被拉伸（距离大于约束长度）时施加约束力
-                // 这样绳子在松弛时可以自然下垂
-                if (dist > c.length) {
-                    const diff = (c.length - dist) / dist * this.stiffness;
-                    const offsetX = dx * diff * 0.5;
-                    const offsetY = dy * diff * 0.5;
-                    
-                    if (!p1.pinned) {
-                        p1.x -= offsetX;
-                        p1.y -= offsetY;
-                    }
-                    if (!p2.pinned) {
-                        p2.x += offsetX;
-                        p2.y += offsetY;
-                    }
+                // 允许极小的拉伸（最多1%），但绝不允许压缩
+                const maxStretch = c.length * 1.01;
+                
+                let targetDist = c.length;
+                if (dist > maxStretch) {
+                    targetDist = maxStretch;
+                }
+                
+                // 总是施加约束力，让绳子保持形状
+                const diff = (targetDist - dist) / dist * this.stiffness;
+                const offsetX = dx * diff * 0.5;
+                const offsetY = dy * diff * 0.5;
+                
+                if (!p1.pinned) {
+                    p1.x -= offsetX;
+                    p1.y -= offsetY;
+                }
+                if (!p2.pinned) {
+                    p2.x += offsetX;
+                    p2.y += offsetY;
                 }
             }
             

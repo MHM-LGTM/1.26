@@ -10,16 +10,24 @@
  * <PlazaPanel onLoadAnimation={handleLoadAnimation} />
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import LikeButton from './LikeButton.jsx';
 import { API_BASE_URL } from '../config/api';
 import { showToast } from '../utils/toast.js';
 
-export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
+const PlazaPanel = forwardRef(({ onLoadAnimation, onPlazaAnimationLoad }, ref) => {
   const [animations, setAnimations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCardId, setSelectedCardId] = useState(null); // 选中的卡片ID
   const [currentPage, setCurrentPage] = useState(0); // 当前页码
+  
+  // 【2026-02-05 新增】暴露清除选中状态的方法给父组件
+  useImperativeHandle(ref, () => ({
+    clearSelection: () => {
+      setSelectedCardId(null);
+      console.log('[PlazaPanel] 已清除选中状态');
+    }
+  }));
   
   // 分页配置：单行显示6个卡片
   const ITEMS_PER_PAGE = 6; // 每页显示6个动画（1行）
@@ -420,5 +428,9 @@ export default function PlazaPanel({ onLoadAnimation, onPlazaAnimationLoad }) {
       )}
     </div>
   );
-}
+});
+
+PlazaPanel.displayName = 'PlazaPanel';
+
+export default PlazaPanel;
 

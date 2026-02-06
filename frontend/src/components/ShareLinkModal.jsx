@@ -62,7 +62,16 @@ export default function ShareLinkModal({ isOpen, onClose, animationId, existingS
         if (data.code === 0) {
           setShareUrl(data.data.share_url);
         } else {
-          showToast.error(`生成失败：${data.message}`);
+          // 检查是否是会员限制错误
+          if (data.code === 403 && data.data?.is_vip === false) {
+            showToast.error(data.message || '分享链接功能仅对会员开放');
+            // 触发打开会员弹窗的事件
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('open-membership-modal'));
+            }, 1500);
+          } else {
+            showToast.error(`生成失败：${data.message}`);
+          }
           onClose();
         }
       } catch (error) {

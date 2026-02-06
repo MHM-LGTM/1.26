@@ -12,7 +12,7 @@ import React, { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { register, login, sendVerificationCode, resetPassword } from '../../api/authApi.js';
 import useAuthStore from '../../store/authStore.js';
-import toast from 'react-hot-toast';
+import { showToast } from '../../utils/toast.js';
 import './styles.css';
 
 export default function LoginModal({ isOpen, onClose }) {
@@ -73,12 +73,12 @@ export default function LoginModal({ isOpen, onClose }) {
   const handleSendCode = async () => {
     if (!validatePhone(phoneNumber)) {
       setError('请输入正确的手机号');
-      toast.error('请输入正确的手机号');
+      showToast.error('请输入正确的手机号');
       return;
     }
 
     if (codeCountdown > 0) {
-      toast.error(`请${codeCountdown}秒后再试`);
+      showToast.error(`请${codeCountdown}秒后再试`);
       return;
     }
 
@@ -89,18 +89,18 @@ export default function LoginModal({ isOpen, onClose }) {
       const scene = mode === 'reset_password' ? 'reset_password' : 'register';
       const res = await sendVerificationCode(phoneNumber, scene);
       if (res.code === 0) {
-        toast.success('验证码已发送，请注意查收');
+        showToast.success('验证码已发送，请注意查收');
         setCodeCountdown(60); // 60秒倒计时
       } else {
         const errorMsg = res.message || '发送验证码失败';
         setError(errorMsg);
-        toast.error(errorMsg);
+        showToast.error(errorMsg);
       }
     } catch (err) {
       const errorDetail = err.response?.data?.detail;
       const errorMessage = extractErrorMessage(errorDetail);
       setError(errorMessage);
-      toast.error(errorMessage);
+      showToast.error(errorMessage);
     } finally {
       setSendingCode(false);
     }
@@ -126,7 +126,7 @@ export default function LoginModal({ isOpen, onClose }) {
       if (res.code === 0) {
         const { access_token, user } = res.data;
         loginUser(access_token, user);
-        toast.success('登录成功');
+        showToast.success('登录成功');
         onClose();
         resetForm();
       } else {
@@ -169,7 +169,7 @@ export default function LoginModal({ isOpen, onClose }) {
     try {
       const res = await register(phoneNumber, password, verificationCode);
       if (res.code === 0) {
-        toast.success('注册成功，请登录');
+        showToast.success('注册成功，请登录');
         setMode('login');
         setPassword('');
         setConfirmPassword('');
@@ -216,7 +216,7 @@ export default function LoginModal({ isOpen, onClose }) {
     try {
       const res = await resetPassword(phoneNumber, verificationCode, password);
       if (res.code === 0) {
-        toast.success('密码重置成功，请登录');
+        showToast.success('密码重置成功，请登录');
         setMode('login');
         setPassword('');
         setConfirmPassword('');

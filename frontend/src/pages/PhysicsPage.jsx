@@ -33,6 +33,7 @@ export default function PhysicsPage() {
   // 用于访问 PhysicsInputBox 或 ElectricInputBox 的加载函数
   const physicsBoxRef = useRef(null);
   const electricBoxRef = useRef(null);
+  const plazaPanelRef = useRef(null); // 【2026-02-05 新增】用于访问 PlazaPanel 的清除方法
 
   // 处理动画加载
   const handleLoadAnimation = (sceneData, plazaAnimationId = null) => {
@@ -61,6 +62,13 @@ export default function PhysicsPage() {
     console.log('[PhysicsPage] 广场动画信息:', animationInfo);
     setPlazaAnimationInfo(animationInfo);
     setCurrentAnimationSource('plaza'); // 标记为广场动画
+  };
+  
+  // 【2026-02-05 新增】清除广场动画选中状态的回调
+  const handleClearPlazaSelection = () => {
+    if (plazaPanelRef.current?.clearSelection) {
+      plazaPanelRef.current.clearSelection();
+    }
   };
 
   return (
@@ -108,6 +116,7 @@ export default function PhysicsPage() {
           animationSource={currentAnimationSource}
           plazaAnimationInfo={plazaAnimationInfo}
           onClosePlazaInfo={() => setPlazaAnimationInfo(null)}
+          onClearPlazaSelection={handleClearPlazaSelection}
         />
       ) : (
         <ElectricInputBox 
@@ -115,6 +124,7 @@ export default function PhysicsPage() {
           animationSource={currentAnimationSource}
           plazaAnimationInfo={plazaAnimationInfo}
           onClosePlazaInfo={() => setPlazaAnimationInfo(null)}
+          onClearPlazaSelection={handleClearPlazaSelection}
         />
       )}
 
@@ -124,6 +134,10 @@ export default function PhysicsPage() {
           handleLoadAnimation(sceneData);
           setPlazaAnimationInfo(null); // 加载我的动画时，清除广场信息
           setCurrentAnimationSource('my'); // 标记为我的动画
+          // 【2026-02-05 新增】清除广场动画的高亮状态
+          if (plazaPanelRef.current?.clearSelection) {
+            plazaPanelRef.current.clearSelection();
+          }
         }}
         onUploadClick={() => {
           // 根据当前场景类型触发对应组件的上传功能
@@ -141,6 +155,7 @@ export default function PhysicsPage() {
 
       {/* 阶段三新增：动画广场面板 */}
       <PlazaPanel 
+        ref={plazaPanelRef}
         onLoadAnimation={handleLoadAnimation}
         onPlazaAnimationLoad={handlePlazaAnimationLoad}
       />

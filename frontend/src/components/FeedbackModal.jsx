@@ -9,7 +9,7 @@
 
 import React, { useState, useRef } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import toast from 'react-hot-toast';
+import { showToast } from '../utils/toast.js';
 import { API_BASE_URL } from '../config/api';
 import './JoinUsModal.css';
 import './CommonModal.css';
@@ -28,18 +28,18 @@ export default function FeedbackModal({ isOpen, onClose }) {
     
     // 限制图片数量
     if (images.length + files.length > 5) {
-      toast.error('最多只能上传5张图片');
+      showToast.error('最多只能上传5张图片');
       return;
     }
 
     // 验证文件类型和大小
     const validFiles = files.filter(file => {
       if (!file.type.startsWith('image/')) {
-        toast.error(`${file.name} 不是图片文件`);
+        showToast.error(`${file.name} 不是图片文件`);
         return false;
       }
       if (file.size > 5 * 1024 * 1024) {
-        toast.error(`${file.name} 超过5MB限制`);
+        showToast.error(`${file.name} 超过5MB限制`);
         return false;
       }
       return true;
@@ -70,19 +70,19 @@ export default function FeedbackModal({ isOpen, onClose }) {
   // 提交反馈
   const handleSubmit = async () => {
     if (!email.trim()) {
-      toast.error('请输入您的邮箱');
+      showToast.error('请输入您的邮箱');
       return;
     }
     
     // 验证邮箱格式
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      toast.error('请输入有效的邮箱地址');
+      showToast.error('请输入有效的邮箱地址');
       return;
     }
 
     if (!description.trim()) {
-      toast.error('请描述您遇到的问题');
+      showToast.error('请描述您遇到的问题');
       return;
     }
 
@@ -107,7 +107,7 @@ export default function FeedbackModal({ isOpen, onClose }) {
       const result = await response.json();
       
       if (response.ok && result.code === 200) {
-        toast.success(result.message);
+        showToast.success(result.message || '提交成功');
         setEmail('');
         setDescription('');
         setImages([]);
@@ -117,7 +117,7 @@ export default function FeedbackModal({ isOpen, onClose }) {
       }
     } catch (error) {
       console.error('提交反馈失败:', error);
-      toast.error(error.message || '提交失败，请重试');
+      showToast.error(error.message || '提交失败，请重试');
     } finally {
       setLoading(false);
     }

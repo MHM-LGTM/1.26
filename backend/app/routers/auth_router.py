@@ -289,7 +289,10 @@ async def login(
 
 
 @router.get("/me", response_model=ApiResponse)
-async def get_me(current_user: User = Depends(get_current_user_optional)):
+async def get_me(
+    current_user: User = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db)
+):
     """
     获取当前用户信息
     
@@ -298,6 +301,8 @@ async def get_me(current_user: User = Depends(get_current_user_optional)):
     
     返回：
     - 当前用户信息
+    - 会员状态
+    - 使用统计
     """
     
     if not current_user:
@@ -306,9 +311,14 @@ async def get_me(current_user: User = Depends(get_current_user_optional)):
             detail="未登录"
         )
     
+    # 获取会员统计
+    from ..services.membership_service import membership_service
+    stats = await membership_service.get_user_usage_stats(current_user, db)
+    
     return ApiResponse.ok({
         "id": current_user.id,
-        "phone_number": mask_phone_number(current_user.phone_number)
+        "phone_number": mask_phone_number(current_user.phone_number),
+        "membership": stats
     })
 
 

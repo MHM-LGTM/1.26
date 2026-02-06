@@ -31,7 +31,7 @@ import { analyzeCircuit, hasOpenSwitch } from '../utils/electric/circuitAnalysis
 import { createCurrentRenderer } from '../utils/electric/currentRenderer.js';
 import { showToast } from '../utils/toast.js';
 
-const ElectricInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClosePlazaInfo }, ref) => {
+const ElectricInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClosePlazaInfo, onClearPlazaSelection }, ref) => {
   // ============================================================================
   // 基础状态
   // ============================================================================
@@ -222,6 +222,11 @@ const ElectricInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onCl
       setPendingElements(elements);
       
       console.log('[ElectricInputBox] AI 识别到的元件:', elements);
+      
+      // 【2026-02-05 新增】上传新图片时清除广场动画的高亮状态
+      if (onClearPlazaSelection) {
+        onClearPlazaSelection();
+      }
       
     } catch (e) {
       console.error('[ElectricInputBox] 上传失败:', e);

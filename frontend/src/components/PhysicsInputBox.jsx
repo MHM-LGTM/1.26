@@ -67,7 +67,7 @@ import {
 } from './physics/elementTypes.js';
 import { showToast } from '../utils/toast.js';
 
-const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClosePlazaInfo }, ref) => {
+const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClosePlazaInfo, onClearPlazaSelection }, ref) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -151,6 +151,11 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
   // 参数调节相关（2026-01-28 新增）
   // ============================================================================
   
+  // 全局参数状态
+  const [globalParameters, setGlobalParameters] = useState({
+    timeScale: 1.0  // 时间缩放（慢镜头/快镜头）
+  });
+  
   // 处理参数变化
   const handleParametersChange = (objectIndex, newParams) => {
     console.log('[PhysicsInputBox] 参数变化:', objectIndex, newParams);
@@ -176,6 +181,22 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
     // 重置时会使用缓存的精灵图 + 最新的参数（assignments）
     // ========================================================================
     console.log('[PhysicsInputBox] 参数已更新，点击重置后生效');
+  };
+  
+  // 处理全局参数变化（时间缩放等）
+  const handleGlobalParametersChange = (newGlobalParams) => {
+    console.log('[PhysicsInputBox] 全局参数变化:', newGlobalParams);
+    
+    setGlobalParameters(prev => ({
+      ...prev,
+      ...newGlobalParams
+    }));
+    
+    // 如果模拟正在运行，实时更新时间缩放
+    if (runningSimulation.current && newGlobalParams.timeScale !== undefined) {
+      runningSimulation.current.setTimeScale(newGlobalParams.timeScale);
+      console.log(`[PhysicsInputBox] 实时更新时间缩放: ${newGlobalParams.timeScale}x`);
+    }
   };
 
   const uploadRef = useRef(null);
@@ -253,6 +274,16 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
           console.log('[PhysicsInputBox] 已恢复 constraints，数量:', sceneData.constraints.length);
         }
 
+        // 恢复全局参数（时间缩放等）
+        if (sceneData.globalParameters) {
+          setGlobalParameters(sceneData.globalParameters);
+          console.log('[PhysicsInputBox] 已恢复 globalParameters:', sceneData.globalParameters);
+        } else {
+          // 如果没有保存全局参数，使用默认值
+          setGlobalParameters({ timeScale: 1.0 });
+          console.log('[PhysicsInputBox] 使用默认 globalParameters');
+        }
+
         // ========================================================================
         // 【方案1核心修改】统一缓存格式，确保与后端返回格式一致
         // 将 sceneData 包装成与 simulate 接口返回相同的格式
@@ -295,9 +326,6 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         // 这样可以确保图片完全加载后再创建刚体，避免尺寸计算错误
         // ========================================================================
         // 注意：刚体创建逻辑已移至 handleImageLoad 中，在图片加载完成后自动触发
-
-        // 提示用户
-        showToast.success('动画已加载！点击"开始模拟"即可运行');
       } catch (error) {
         console.error('[PhysicsInputBox] 加载动画失败:', error);
         showToast.error(`加载失败：${error.message}`);
@@ -393,6 +421,11 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
       setIsSegmentationDisabled(false);
       setIsSimulationRunning(false);
       console.log('[PhysicsInputBox] 新图片上传，重新启用图像分割功能');
+      
+      // 【2026-02-05 新增】上传新图片时清除广场动画的高亮状态
+      if (onClearPlazaSelection) {
+        onClearPlazaSelection();
+      }
     } catch (e) {
       setError(e?.response?.data?.message || e?.message || '图片上传失败');
     } finally {
@@ -423,7 +456,8 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
           constraints: constraintRelations || [],
           imageRect: imgRef.current.getBoundingClientRect(),
           naturalSize: newSize,
-          frozen: true
+          frozen: true,
+          timeScale: globalParameters.timeScale
         });
         
         runningSimulation.current = sim;
@@ -963,6 +997,70 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
     setError('');
   };
 
+  // ============================================================================
+  // 清空画布功能（2026-02-04 新增）
+  // ============================================================================
+  const handleClearCanvas = () => {
+    console.log('[PhysicsInputBox] 用户点击清空画布');
+    
+    // 停止正在运行的模拟
+    if (runningSimulation.current) {
+      runningSimulation.current.stop();
+      runningSimulation.current = null;
+    }
+    
+    // 清除画布绘制
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      }
+    }
+    
+    // 重置所有状态
+    setImagePreview('');
+    setImagePath('');
+    setOriginalImageUrl('');
+    setImageNaturalSize({ w: 0, h: 0 });
+    setContour([]);
+    setLastImageContour([]);
+    setRecognized([]);
+    setRecognizedDetailed([]);
+    setPendingElements([]);
+    setAssignments([]);
+    setConstraintRelations([]);
+    setEmbedMs(null);
+    setAiMs(null);
+    setDoubaoError('');
+    setCanDownload(false);
+    setIsSimulationRunning(false);
+    setIsSegmentationDisabled(false);
+    setIsInteractiveModeActive(false);
+    setInteractionMode('segment');
+    setPendingPivotSelection(null);
+    setSelectedPivots([]);
+    setLastMousePos(null);
+    setPopupOffset({ x: 0, y: 0 });
+    setError('');
+    
+    // 清空缓存
+    simulationCache.current = null;
+    
+    // 清空广场动画信息（如果有）
+    setCurrentPlazaAnimationId(null);
+    if (onClosePlazaInfo) {
+      onClosePlazaInfo();
+    }
+    
+    // 【2026-02-05 新增】清空画布时清除广场动画的高亮状态
+    if (onClearPlazaSelection) {
+      onClearPlazaSelection();
+    }
+    
+    console.log('[PhysicsInputBox] 画布已清空，恢复到初始状态');
+    showToast.success('画布已清空');
+  };
+
   // 阶段三新增：处理下载/Fork 按钮点击
   const handleDownloadClick = async () => {
     const token = useAuthStore.getState().token;
@@ -990,7 +1088,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         const data = await response.json();
         
         if (data.code === 0) {
-          showToast.success('已保存到我的动画！\n\n你可以在"我的动画"中查看和编辑。');
+          showToast.success('保存成功');
           // 清除广场动画标记
           setCurrentPlazaAnimationId(null);
         } else {
@@ -1063,7 +1161,8 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
               constraints: constraintRelations,
               imageRect: imgRef.current.getBoundingClientRect(),
               naturalSize: imageNaturalSize,
-              frozen: true  // 冻结状态
+              frozen: true,  // 冻结状态
+              timeScale: globalParameters.timeScale
             });
             runningSimulation.current = sim;
             console.log('[PhysicsInputBox] 已重置到初始冻结状态（应用最新参数）');
@@ -1099,7 +1198,6 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         console.log('[PhysicsInputBox] 检测到冻结的刚体，直接激活物理效果');
         runningSimulation.current.unfreeze();
         setIsSimulationRunning(true);
-        showToast.success('物理模拟已启动！');
         setLoading(false);
         return;
       }
@@ -1175,7 +1273,8 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         constraints: constraintRelations,
         imageRect: imgRef.current?.getBoundingClientRect?.(),
         naturalSize: imageNaturalSize,
-        frozen: true  // 先创建冻结的刚体
+        frozen: true,  // 先创建冻结的刚体
+        timeScale: globalParameters.timeScale
       });
       runningSimulation.current = sim;
 
@@ -1204,8 +1303,6 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
           // ========================================================================
           setIsSegmentationDisabled(true);
           console.log('[PhysicsInputBox] 模拟已创建，禁用图像分割功能');
-          
-          showToast.success('模拟已启动！');
         }
       }, 100);
 
@@ -1413,15 +1510,19 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
                  );
               })()}
 
-              {/* 右上角：交互模式按钮（2026-01-28 新增）*/}
-              {isSimulationRunning && !isInteractiveModeActive && (
-                <div style={{
-                  position: 'absolute',
-                  top: 16,
-                  right: 16,
-                  zIndex: 30,
-                  pointerEvents: 'auto'
-                }}>
+              {/* 右上角按钮组：交互模式 + 清空画布（2026-02-04 优化）*/}
+              <div style={{
+                position: 'absolute',
+                top: 16,
+                right: 16,
+                zIndex: 30,
+                pointerEvents: 'auto',
+                display: 'flex',
+                gap: 8,
+                alignItems: 'center'
+              }}>
+                {/* 交互模式按钮（模拟运行中显示）*/}
+                {isSimulationRunning && (
                   <button
                     className="start-btn"
                     onClick={() => {
@@ -1431,77 +1532,78 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
                       }
                     }}
                     style={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                      backgroundColor: isInteractiveModeActive ? 'rgba(255, 234, 167, 0.95)' : 'rgba(255, 255, 255, 0.95)',
                       backdropFilter: 'blur(8px)',
-                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                      boxShadow: isInteractiveModeActive ? '0 4px 12px rgba(255, 152, 0, 0.25)' : '0 4px 12px rgba(0, 0, 0, 0.15)',
                       padding: '6px 12px',
                       fontSize: '12px',
                       fontWeight: 600,
                       borderRadius: '10px',
-                      border: '1px solid #000',
-                      background: 'linear-gradient(135deg, #fff 0%, #fffef8 100%)',
+                      border: isInteractiveModeActive ? '1px solid #ff9800' : '1px solid #000',
+                      background: isInteractiveModeActive 
+                        ? 'linear-gradient(135deg, #ffeaa7 0%, #ffcc80 100%)' 
+                        : 'linear-gradient(135deg, #fff 0%, #fffef8 100%)',
                       cursor: 'pointer',
                       transition: 'all 0.2s'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'linear-gradient(135deg, #fff8e1 0%, #ffeaa7 100%)';
-                      e.currentTarget.style.boxShadow = '0 6px 16px rgba(255, 152, 0, 0.2)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'linear-gradient(135deg, #fff 0%, #fffef8 100%)';
-                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
-                    }}
-                  >
-                    🎮 交互模式
-                  </button>
-                </div>
-              )}
-              
-              {/* 右上角：退出交互模式按钮 + 提示条 */}
-              {isSimulationRunning && isInteractiveModeActive && (
-                <>
-                  <div style={{
-                    position: 'absolute',
-                    top: 16,
-                    right: 16,
-                    zIndex: 30,
-                    pointerEvents: 'auto'
-                  }}>
-                    <button
-                      className="start-btn"
-                      onClick={() => {
-                        if (runningSimulation.current && runningSimulation.current.toggleInteractiveMode) {
-                          const newState = runningSimulation.current.toggleInteractiveMode();
-                          setIsInteractiveModeActive(newState);
-                        }
-                      }}
-                      style={{
-                        backgroundColor: 'rgba(255, 234, 167, 0.95)',
-                        backdropFilter: 'blur(8px)',
-                        boxShadow: '0 4px 12px rgba(255, 152, 0, 0.25)',
-                        padding: '6px 12px',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        borderRadius: '10px',
-                        border: '1px solid #ff9800',
-                        background: 'linear-gradient(135deg, #ffeaa7 0%, #ffcc80 100%)',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s'
-                      }}
-                      onMouseEnter={(e) => {
+                      if (isInteractiveModeActive) {
                         e.currentTarget.style.background = 'linear-gradient(135deg, #ffcc80 0%, #ff9800 100%)';
                         e.currentTarget.style.boxShadow = '0 6px 16px rgba(255, 152, 0, 0.35)';
-                      }}
-                      onMouseLeave={(e) => {
+                      } else {
+                        e.currentTarget.style.background = 'linear-gradient(135deg, #fff8e1 0%, #ffeaa7 100%)';
+                        e.currentTarget.style.boxShadow = '0 6px 16px rgba(255, 152, 0, 0.2)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (isInteractiveModeActive) {
                         e.currentTarget.style.background = 'linear-gradient(135deg, #ffeaa7 0%, #ffcc80 100%)';
                         e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 152, 0, 0.25)';
-                      }}
-                    >
-                      ✓ 交互模式
-                    </button>
-                  </div>
-                </>
-              )}
+                      } else {
+                        e.currentTarget.style.background = 'linear-gradient(135deg, #fff 0%, #fffef8 100%)';
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+                      }
+                    }}
+                  >
+                    {isInteractiveModeActive ? '✓ 交互模式' : '🎮 交互模式'}
+                  </button>
+                )}
+                
+                {/* 清空画布按钮（始终显示）*/}
+                <button
+                  onClick={handleClearCanvas}
+                  title="清空画布"
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(239, 68, 68, 0.5)',
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    backdropFilter: 'blur(8px)',
+                    color: '#ef4444',
+                    fontSize: '16px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 2px 8px rgba(239, 68, 68, 0.15)',
+                    transition: 'all 0.2s',
+                    padding: 0
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#fee2e2';
+                    e.currentTarget.style.borderColor = '#ef4444';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.25)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.95)';
+                    e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(239, 68, 68, 0.15)';
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
 
               <div style={{
                 position: 'absolute',
@@ -1549,6 +1651,8 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
           <PhysicsParametersPanel
             objects={assignments}
             onParametersChange={handleParametersChange}
+            onGlobalParametersChange={handleGlobalParametersChange}
+            globalParameters={globalParameters}
             isSimulationRunning={isSimulationRunning}
           />
         </div>
@@ -1558,7 +1662,8 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
       {(recognizedDetailed.length > 0 || assignments.length > 0 || constraintRelations.length > 0 || plazaAnimationInfo || 
         ((interactionMode === 'select_pivot' || interactionMode === 'select_first_endpoint' || interactionMode === 'select_second_endpoint') && pendingPivotSelection)) && (
         <div style={{ 
-          marginTop: 12, 
+          marginTop: 8, 
+          marginBottom: 16,
           marginRight: 400,
           padding: '8px 4px',
           display: 'flex', 
@@ -1627,6 +1732,60 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
             <>
               {/* 左侧：所有信息横向排列在同一行 */}
               <div style={{ flex: '1 1 auto', minWidth: 280, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                {/* 广场动画信息 - 如果没有约束关系则放最前面 */}
+                {plazaAnimationInfo && constraintRelations.length === 0 && (
+                  <>
+                    <span style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: '#111827'
+                    }}>
+                      📝 {plazaAnimationInfo.title}
+                    </span>
+                    
+                    <LikeButton 
+                      animationId={plazaAnimationInfo.id} 
+                      initialLikeCount={plazaAnimationInfo.like_count || 0}
+                      size="small"
+                    />
+                    
+                    {plazaAnimationInfo.author_name && (
+                      <span style={{
+                        fontSize: 12,
+                        color: '#6b7280'
+                      }}>
+                        👤 {plazaAnimationInfo.author_name}
+                      </span>
+                    )}
+                    
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowShareModal(true);
+                      }}
+                      style={{
+                        padding: '4px 8px',
+                        borderRadius: 4,
+                        border: 'none',
+                        background: 'linear-gradient(135deg, #ff9800 0%, #ff6b35 100%)',
+                        color: 'white',
+                        fontSize: 11,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        boxShadow: '0 2px 4px rgba(255, 152, 0, 0.2)'
+                      }}
+                    >
+                      🔗 分享
+                    </button>
+                    
+                    {recognizedDetailed && recognizedDetailed.length > 0 && (
+                      <span style={{ color: '#d1d5db', fontSize: 16, fontWeight: 300 }}>|</span>
+                    )}
+                  </>
+                )}
+                
                 {/* 待选择的元素（动态过滤已选择的元素） */}
                 {recognizedDetailed && recognizedDetailed.length > 0 && (() => {
                   // 获取已选择元素的名称列表
@@ -1691,113 +1850,59 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
                     ))}
                   </>
                 )}
-              </div>
-
-              {/* 右侧：广场动画信息（统一卡片样式） */}
-              {plazaAnimationInfo && (
-                <div style={{
-                  flex: '0 0 auto',
-                  padding: '8px 14px',
-                  background: 'white',
-                  border: '1px solid #d1d5db',
-                  borderRadius: 10,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  flexWrap: 'wrap',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-                }}>
-                  <span style={{
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: '#111827'
-                  }}>
-                    📝 {plazaAnimationInfo.title}
-                  </span>
-                  
-                  <LikeButton 
-                    animationId={plazaAnimationInfo.id} 
-                    initialLikeCount={plazaAnimationInfo.like_count || 0}
-                    size="small"
-                  />
-                  
-                  {plazaAnimationInfo.author_name && (
+                
+                {/* 广场动画信息 - 如果有约束关系则放在后面 */}
+                {plazaAnimationInfo && constraintRelations.length > 0 && (
+                  <>
+                    <span style={{ color: '#d1d5db', fontSize: 16, fontWeight: 300 }}>|</span>
+                    
                     <span style={{
-                      fontSize: 11,
-                      color: '#6b7280',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 4
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: '#111827'
                     }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-                        <circle cx="12" cy="8" r="4" stroke="#ff9800" strokeWidth="2" strokeLinecap="round" />
-                        <path d="M6 21C6 17.134 8.686 14 12 14C15.314 14 18 17.134 18 21" stroke="#ff9800" strokeWidth="2" strokeLinecap="round" />
-                      </svg>
-                      {plazaAnimationInfo.author_name}
+                      📝 {plazaAnimationInfo.title}
                     </span>
-                  )}
-                  
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowShareModal(true);
-                    }}
-                    style={{
-                      padding: '5px 10px',
-                      borderRadius: 6,
-                      border: '1px solid #d1d5db',
-                      background: 'white',
-                      color: '#16a34a',
-                      fontSize: 12,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      fontWeight: 500
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#f0fdf4';
-                      e.currentTarget.style.borderColor = '#16a34a';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'white';
-                      e.currentTarget.style.borderColor = '#d1d5db';
-                    }}
-                  >
-                    🔗 分享
-                  </button>
-
-                  <button
-                    onClick={onClosePlazaInfo}
-                    style={{
-                      width: 20,
-                      height: 20,
-                      borderRadius: 10,
-                      border: '1px solid #d1d5db',
-                      background: 'white',
-                      color: '#6b7280',
-                      fontSize: 16,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      padding: 0,
-                      flexShrink: 0,
-                      lineHeight: 1
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = '#fee2e2';
-                      e.currentTarget.style.color = '#dc2626';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'white';
-                      e.currentTarget.style.color = '#6b7280';
-                    }}
-                  >
-                    ×
-                  </button>
-                </div>
-              )}
+                    
+                    <LikeButton 
+                      animationId={plazaAnimationInfo.id} 
+                      initialLikeCount={plazaAnimationInfo.like_count || 0}
+                      size="small"
+                    />
+                    
+                    {plazaAnimationInfo.author_name && (
+                      <span style={{
+                        fontSize: 12,
+                        color: '#6b7280'
+                      }}>
+                        👤 {plazaAnimationInfo.author_name}
+                      </span>
+                    )}
+                    
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowShareModal(true);
+                      }}
+                      style={{
+                        padding: '4px 8px',
+                        borderRadius: 4,
+                        border: 'none',
+                        background: 'linear-gradient(135deg, #ff9800 0%, #ff6b35 100%)',
+                        color: 'white',
+                        fontSize: 11,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        boxShadow: '0 2px 4px rgba(255, 152, 0, 0.2)'
+                      }}
+                    >
+                      🔗 分享
+                    </button>
+                  </>
+                )}
+              </div>
             </>
           )}
         </div>
@@ -1816,7 +1921,8 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
           imageNaturalSize,
           imagePath,
           objects: assignments,  // 动态获取最新的 assignments（包含精灵图）
-          constraints: constraintRelations
+          constraints: constraintRelations,
+          globalParameters  // 保存全局参数（时间缩放等）
         })}
       />
 

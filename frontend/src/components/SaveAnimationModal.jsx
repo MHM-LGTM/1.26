@@ -212,6 +212,12 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
         const animId = data.data.id;
         setSavedAnimationId(animId);
         
+        // 更新会员使用统计（如果返回了）
+        if (data.data.usage) {
+          const updateMembership = useAuthStore.getState().updateMembership;
+          updateMembership(data.data.usage);
+        }
+        
         // 检查是否需要询问上传到广场
         const dontAsk = localStorage.getItem('dontAskPublish') === 'true';
         
@@ -226,7 +232,17 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
           setShowPublishPrompt(true);
         }
       } else {
-        showToast.error(`保存失败：${data.message || '未知错误'}`);
+        // 检查是否是会员限制错误
+        if (data.code === 403 && data.data?.is_vip === false) {
+          showToast.error(data.message || '今日次数已用完，开通会员享无限次数');
+          // 可以在这里打开会员弹窗
+          setTimeout(() => {
+            // 触发打开会员弹窗的事件
+            window.dispatchEvent(new CustomEvent('open-membership-modal'));
+          }, 2000);
+        } else {
+          showToast.error(`保存失败：${data.message || '未知错误'}`);
+        }
       }
     } catch (error) {
       console.error('保存动画失败:', error);

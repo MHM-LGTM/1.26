@@ -106,10 +106,22 @@ const getParametersByType = (obj) => {
   }
 };
 
-const PhysicsParametersPanel = ({ objects = [], onParametersChange, isSimulationRunning }) => {
+const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalParametersChange, globalParameters, isSimulationRunning }) => {
   const [selectedObjectIndex, setSelectedObjectIndex] = useState(0);
   const [localParams, setLocalParams] = useState({});
   const [parameterType, setParameterType] = useState('dynamic');
+  
+  // 全局参数：时间缩放
+  const [timeScale, setTimeScale] = useState(1.0);
+  
+  // 【2026-02-05 修复】当父组件的 globalParameters 变化时，同步更新本地的 timeScale
+  // 这样当加载新动画时，时间缩放的UI显示会正确同步
+  useEffect(() => {
+    if (globalParameters?.timeScale !== undefined && globalParameters.timeScale !== timeScale) {
+      setTimeScale(globalParameters.timeScale);
+      console.log('[PhysicsParametersPanel] 同步时间缩放:', globalParameters.timeScale);
+    }
+  }, [globalParameters]);
 
   // 当选中的物体改变时，更新本地参数
   useEffect(() => {
@@ -129,6 +141,16 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, isSimulation
     // 通知父组件参数已更改
     if (onParametersChange) {
       onParametersChange(selectedObjectIndex, newParams);
+    }
+  };
+  
+  // 处理全局参数变化（时间缩放）
+  const handleTimeScaleChange = (value) => {
+    setTimeScale(value);
+    
+    // 通知父组件全局参数已更改
+    if (onGlobalParametersChange) {
+      onGlobalParametersChange({ timeScale: value });
     }
   };
 
@@ -194,6 +216,50 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, isSimulation
 
       {/* 参数调节区域 */}
       <div className="params-content">
+        {/* ====================================================================== */}
+        {/* 全局参数：时间缩放（慢镜头/快镜头）- 始终显示 */}
+        {/* ====================================================================== */}
+        <div className="param-section">
+          <div className="section-title">⏱️ 时间缩放</div>
+          
+          <div className="param-item">
+            <div className="param-header">
+              <label className="param-label">
+                时间速度 
+                <span style={{ 
+                  marginLeft: '8px', 
+                  fontSize: '11px', 
+                  color: timeScale < 0.8 ? '#f59e0b' : timeScale > 1.2 ? '#10b981' : '#6b7280',
+                  fontWeight: 600
+                }}>
+                  {timeScale < 0.8 ? '🐢 慢镜头' : timeScale > 1.2 ? '⚡ 快镜头' : '⏸️ 正常'}
+                </span>
+              </label>
+              <input
+                type="number"
+                className="param-value-input"
+                value={timeScale}
+                onChange={(e) => handleTimeScaleChange(parseFloat(e.target.value) || 1.0)}
+                step="0.1"
+                min="0.1"
+                max="3"
+              />
+            </div>
+            <input
+              type="range"
+              className="param-slider"
+              min="0.1"
+              max="3"
+              step="0.1"
+              value={timeScale}
+              onChange={(e) => handleTimeScaleChange(parseFloat(e.target.value))}
+            />
+            <div className="param-hint">
+              1.0 = 正常速度 | 0.5 = 慢镜头 | 2.0 = 快镜头（全局影响所有物体）
+            </div>
+          </div>
+        </div>
+
         {/* ====================================================================== */}
         {/* 绳索参数 */}
         {/* ====================================================================== */}

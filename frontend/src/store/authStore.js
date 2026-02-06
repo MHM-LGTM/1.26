@@ -23,6 +23,7 @@ const useAuthStore = create(
       token: null,
       user: null,
       isLoggedIn: false,
+      membership: null, // 会员信息
 
       // 登录
       login: (token, user) => {
@@ -39,12 +40,18 @@ const useAuthStore = create(
           token: null,
           user: null,
           isLoggedIn: false,
+          membership: null,
         });
       },
 
       // 更新用户信息
       updateUser: (user) => {
         set({ user });
+      },
+
+      // 更新会员信息
+      updateMembership: (membership) => {
+        set({ membership });
       },
     }),
     {
@@ -53,6 +60,7 @@ const useAuthStore = create(
         token: state.token,
         user: state.user,
         isLoggedIn: state.isLoggedIn,
+        membership: state.membership,
       }),
     }
   )

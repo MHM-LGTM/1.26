@@ -35,6 +35,7 @@ from ..models.animation_schema import (
 )
 from ..models.response_schema import ApiResponse
 from ..services.auth_service import get_current_user
+from ..services.membership_service import membership_service
 from ..utils.logger import log
 from ..utils.phone_utils import mask_phone_number
 from ..utils.file_utils import save_upload_file, delete_upload_file
@@ -114,6 +115,10 @@ async def create_animation(
     - id: 新创建的动画ID
     - message: 成功消息
     
+    会员限制：
+    - 非会员每天最多制作5次动画
+    - 会员无限制
+    
     图片存储逻辑：
     - 图片文件存储在服务器磁盘（backend/uploads/animations/）
     - 数据库中以相对路径（如 /uploads/animations/uuid_file.png）格式存储
@@ -121,6 +126,12 @@ async def create_animation(
     - 删除动画时会自动清理关联的磁盘文件
     """
     try:
+        # 检查使用限制
+        allowed, message, usage_data = await membership_service.check_usage_limit(current_user, db)
+        
+        if not allowed:
+            return ApiResponse.error(403, message, usage_data)
+        
         # 创建动画记录
         animation = Animation(
             user_id=current_user.id,
@@ -136,11 +147,19 @@ async def create_animation(
         await db.commit()
         await db.refresh(animation)
         
+        # 增加使用次数（仅非会员）
+        if not current_user.is_vip_active:
+            await membership_service.increment_usage(current_user.id, db)
+        
         log.info(f"用户 {current_user.id} 创建动画：{animation.id} - {animation.title}")
+        
+        # 获取更新后的使用统计
+        updated_stats = await membership_service.get_user_usage_stats(current_user, db)
         
         return ApiResponse.ok({
             "id": animation.id,
-            "message": "动画保存成功"
+            "message": "动画保存成功",
+            "usage": updated_stats
         })
         
     except Exception as e:
@@ -760,8 +779,20 @@ async def generate_share_link(
     返回：
     - share_code: 分享码
     - share_url: 完整分享链接
+    
+    会员限制：
+    - 非会员不能生成分享链接
+    - 会员可以正常使用
     """
     try:
+        # 检查会员状态
+        if not current_user.is_vip_active:
+            return ApiResponse.error(
+                403, 
+                "分享链接功能仅对会员开放，请开通会员后使用",
+                {"is_vip": False, "feature": "share_link"}
+            )
+        
         # 查询动画（必须是自己的）
         stmt = select(Animation).where(
             Animation.id == animation_id,

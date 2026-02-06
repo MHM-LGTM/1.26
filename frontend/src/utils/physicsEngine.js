@@ -75,6 +75,7 @@ Matter.Common.setDecomp(decomp);
  * @param {Object} options.naturalSize - 原图的原始尺寸 { w, h }
  * @param {boolean} options.frozen - 是否创建冻结的刚体
  * @param {boolean} options.interactiveMode - 是否启用交互模式
+ * @param {number} options.timeScale - 时间缩放系数（1.0=正常速度, 0.5=慢镜头, 2.0=快镜头）
  *
  * @returns {Object} - 返回模拟控制器
  */
@@ -85,7 +86,8 @@ export function runSimulation({
   imageRect, 
   naturalSize = { w: 0, h: 0 }, 
   frozen = false, 
-  interactiveMode = false 
+  interactiveMode = false,
+  timeScale = 1.0
 }) {
 
   // ────────────────────────────────────────────────────────────────
@@ -113,6 +115,10 @@ export function runSimulation({
   // ────────────────────────────────────────────────────────────────
 
   const engine = Engine.create();
+  
+  // 应用时间缩放（慢镜头/快镜头功能）
+  engine.timing.timeScale = timeScale;
+  console.log(`[物理引擎] 时间缩放已设置为: ${timeScale}x`);
 
   const render = Render.create({
     element: container || document.body,
@@ -127,6 +133,9 @@ export function runSimulation({
 
   // 绳子系统初始化
   const ropes = [];
+  
+  // 凹面体精灵图信息存储
+  const concaveSprites = [];
 
 
   // ────────────────────────────────────────────────────────────────
@@ -237,6 +246,9 @@ export function runSimulation({
         label: `凹面体-${obj.name || '未命名'}`
       });
 
+      // 如果有精灵图，分解的凸多边形设为透明，稍后手动绘制精灵图
+      const hasSprite = !!obj.sprite_data_url;
+
       convexPolygons.forEach((polygon, idx) => {
         const polyVerts = Vertices.create(polygon, Matter);
         const polyCenter = Matter.Vertices.centre(polyVerts);
@@ -246,9 +258,9 @@ export function runSimulation({
           friction,
           frictionStatic: 0.5,
           restitution,
-          render: {
-            fillStyle: '#94a3b8',
-          },
+          render: hasSprite 
+            ? { visible: false }  // 有精灵图时隐藏物理刚体
+            : { fillStyle: '#94a3b8' },  // 无精灵图时显示灰色填充
         });
 
         if (polyBody) {
@@ -257,7 +269,31 @@ export function runSimulation({
       });
 
       Composite.add(engine.world, concaveComposite);
-      console.log(`[物理引擎] 静态凹面体创建成功: ${obj.name || '未命名'}, 分解为 ${convexPolygons.length} 个凸多边形`);
+      
+      // 保存凹面体的精灵图信息，用于手动渲染
+      if (hasSprite) {
+        // 计算原始轮廓的包围盒和中心点
+        const minX = Math.min(...processed.map(p => p.x));
+        const maxX = Math.max(...processed.map(p => p.x));
+        const minY = Math.min(...processed.map(p => p.y));
+        const maxY = Math.max(...processed.map(p => p.y));
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        const spriteWidth = maxX - minX;
+        const spriteHeight = maxY - minY;
+        
+        concaveSprites.push({
+          texture: obj.sprite_data_url,
+          center: { x: centerX, y: centerY },
+          width: spriteWidth,
+          height: spriteHeight,
+          composite: concaveComposite
+        });
+        
+        console.log(`[物理引擎] 静态凹面体创建成功（含精灵图）: ${obj.name || '未命名'}, 分解为 ${convexPolygons.length} 个凸多边形`);
+      } else {
+        console.log(`[物理引擎] 静态凹面体创建成功: ${obj.name || '未命名'}, 分解为 ${convexPolygons.length} 个凸多边形`);
+      }
 
     } else {
       // 情况C：动态凹面体 - 使用凸包近似
@@ -507,7 +543,7 @@ export function runSimulation({
           render: {
             visible: true,
             lineWidth: 2,
-            strokeStyle: c.constraintType === 'spring' ? '#22c55e' : '#3b82f6',
+            strokeStyle: c.constraintType === 'spring' ? '#22c55e' : '#000000',
             type: c.constraintType === 'spring' ? 'spring' : 'line',
           },
         });
@@ -522,7 +558,7 @@ export function runSimulation({
           render: {
             visible: true,
             lineWidth: 2,
-            strokeStyle: c.constraintType === 'spring' ? '#22c55e' : '#3b82f6',
+            strokeStyle: c.constraintType === 'spring' ? '#22c55e' : '#000000',
             type: c.constraintType === 'spring' ? 'spring' : 'line',
           },
         });
@@ -584,7 +620,7 @@ export function runSimulation({
     });
     
     if (ropes.length > 0) {
-      const gravity = { x: 0, y: 0.3 }; // 增加重力让绳子自然下垂更明显
+      const gravity = { x: 0, y: 0.15 }; // 适中的重力，让绳子自然下垂
       // 获取所有刚体用于碰撞检测（包括静态和动态）
       const allBodies = Composite.allBodies(engine.world);
       for (const rope of ropes) {
@@ -650,18 +686,50 @@ export function runSimulation({
     });
   };
 
+  // 创建精灵图加载缓存
+  const spriteImageCache = new Map();
+  
   const ropeRenderHandler = () => {
     if (render.context) {
+      const ctx = render.context;
+      
+      // 绘制凹面体精灵图
+      if (concaveSprites.length > 0) {
+        for (const sprite of concaveSprites) {
+          // 检查图片是否已加载
+          let img = spriteImageCache.get(sprite.texture);
+          if (!img) {
+            img = new Image();
+            img.src = sprite.texture;
+            spriteImageCache.set(sprite.texture, img);
+          }
+          
+          // 只在图片加载完成后绘制
+          if (img.complete && img.naturalWidth > 0) {
+            ctx.save();
+            ctx.translate(sprite.center.x, sprite.center.y);
+            ctx.drawImage(
+              img,
+              -sprite.width / 2,
+              -sprite.height / 2,
+              sprite.width,
+              sprite.height
+            );
+            ctx.restore();
+          }
+        }
+      }
+      
       // 绘制绳子
       if (ropes.length > 0) {
         for (const rope of ropes) {
-          rope.render(render.context);
+          rope.render(ctx);
         }
       }
       
       // 绘制滑轮（在绳子上方）
       if (pulleys.length > 0) {
-        renderPulleys(render.context, pulleys);
+        renderPulleys(ctx, pulleys);
       }
     }
   };
@@ -814,6 +882,12 @@ export function runSimulation({
       return isInteractiveModeActive;
     },
     
+    setTimeScale: (newTimeScale) => {
+      const scale = Math.max(0.1, Math.min(3, newTimeScale)); // 限制在 0.1 到 3 之间
+      engine.timing.timeScale = scale;
+      console.log(`[物理引擎] 时间缩放已更新为: ${scale}x`);
+    },
+    
     stop: () => {
       console.log('[物理引擎] 停止模拟，清理资源...');
       Runner.stop(runner);
@@ -822,6 +896,8 @@ export function runSimulation({
       Events.off(engine, 'afterUpdate', ropeUpdateHandler);
       Events.off(render, 'afterRender', ropeRenderHandler);
       ropes.length = 0; // 清空绳索数组
+      concaveSprites.length = 0; // 清空凹面体精灵图数组
+      spriteImageCache.clear(); // 清空精灵图缓存
       Composite.clear(engine.world, false);
       Engine.clear(engine);
       if (render.canvas) {
