@@ -27,6 +27,8 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
     'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji';
   position: relative;
+  overflow: hidden;
+  height: 100vh;
 }
 
 /* 物理主题背景装饰 */
@@ -72,6 +74,8 @@ body > * {
   padding-left: 24px;
   padding-right: 24px;
   padding-bottom: 24px;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .topbar {
@@ -228,4 +232,90 @@ body > * {
 .status-line {
   margin-top: 8px;
   color: var(--text-primary);
+}
+
+/* ============================================
+   网站底部备案信息样式
+   ============================================ */
+.site-footer {
+  position: fixed;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: 50;
+  pointer-events: none;
+}
+
+/* 横线装饰 */
+.footer-decorator {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.footer-decorator::before,
+.footer-decorator::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(102, 102, 102, 0.2), transparent);
+}
+
+.footer-decorator::before {
+  margin-right: 12px;
+}
+
+.footer-decorator::after {
+  margin-left: 12px;
+}
+
+.footer-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 153, 0, 0.35);
+}
+
+.beian-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.beian-info * {
+  pointer-events: auto;
+}
+
+.beian-icon {
+  width: 16px;
+  height: 18px;
+  vertical-align: middle;
+}
+
+.beian-link {
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.beian-link:hover {
+  color: var(--primary-light);
+  opacity: 1;
+}
+
+.beian-info .divider {
+  color: rgba(102, 102, 102, 0.4);
+  margin: 0 4px;
 }

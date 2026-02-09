@@ -126,7 +126,7 @@ async def grant_vip_to_user(
         target_user = result.scalar_one_or_none()
         
         if not target_user:
-            return ApiResponse.error(404, "目标用户不存在")
+            return ApiResponse.error("目标用户不存在", 404)
         
         # 赠送会员
         success, message = await membership_service.grant_vip(
@@ -140,7 +140,7 @@ async def grant_vip_to_user(
             log.info(f"用户 {current_user.id} 为用户 {target_user.id} 赠送会员：{req.days}天")
             return ApiResponse.ok({"message": message})
         else:
-            return ApiResponse.error(500, message)
+            return ApiResponse.error(message, 500)
         
     except Exception as e:
         log.error(f"赠送会员失败：{e}")

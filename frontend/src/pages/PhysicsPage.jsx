@@ -19,6 +19,7 @@ import PlazaPanel from '../components/PlazaPanel.jsx';
 import LoginModal from '../components/Auth/LoginModal.jsx';
 import UserMenu from '../components/Auth/UserMenu.jsx';
 import AboutMenu from '../components/AboutMenu.jsx';
+import Footer from '../components/Footer.jsx';
 import useAuthStore from '../store/authStore.js';
 
 export default function PhysicsPage() {
@@ -165,6 +166,9 @@ export default function PhysicsPage() {
         isOpen={showLoginModal}
         onClose={() => setShowLoginModal(false)}
       />
+
+      {/* 底部备案信息 */}
+      <Footer />
     </div>
   );
 }

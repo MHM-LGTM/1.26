@@ -130,7 +130,7 @@ async def create_animation(
         allowed, message, usage_data = await membership_service.check_usage_limit(current_user, db)
         
         if not allowed:
-            return ApiResponse.error(403, message, usage_data)
+            return ApiResponse.error(message, 403, usage_data)
         
         # 创建动画记录
         animation = Animation(
@@ -242,7 +242,7 @@ async def get_animation_detail(
         animation = result.scalar_one_or_none()
         
         if not animation:
-            return ApiResponse.error(404, "动画不存在或无权访问")
+            return ApiResponse.error("动画不存在或无权访问", 404)
         
         return ApiResponse.ok({
             "id": animation.id,
@@ -285,7 +285,7 @@ async def delete_animation(
         animation = result.scalar_one_or_none()
         
         if not animation:
-            return ApiResponse.error(404, "动画不存在或无权删除")
+            return ApiResponse.error("动画不存在或无权删除", 404)
         
         # 收集需要删除的图片路径
         files_to_delete = []
@@ -355,7 +355,7 @@ async def publish_to_plaza(
         animation = result.scalar_one_or_none()
         
         if not animation:
-            return ApiResponse.error(404, "动画不存在或无权操作")
+            return ApiResponse.error("动画不存在或无权操作", 404)
         
         # 设置为公开
         animation.is_public = True
@@ -403,7 +403,7 @@ async def unpublish_from_plaza(
         animation = result.scalar_one_or_none()
         
         if not animation:
-            return ApiResponse.error(404, "动画不存在或无权操作")
+            return ApiResponse.error("动画不存在或无权操作", 404)
         
         # 设置为私有
         animation.is_public = False
@@ -455,7 +455,7 @@ async def get_plaza_animation_detail(
         animation = result.scalar_one_or_none()
         
         if not animation:
-            return ApiResponse.error(404, "动画不存在或未公开")
+            return ApiResponse.error("动画不存在或未公开", 404)
         
         anim_data = {
             "id": animation.id,
@@ -573,7 +573,7 @@ async def like_animation(
         animation = anim_result.scalar_one_or_none()
         
         if not animation:
-            return ApiResponse.error(404, "动画不存在或未公开")
+            return ApiResponse.error("动画不存在或未公开", 404)
         
         # 检查是否已点赞
         like_stmt = select(AnimationLike).where(
@@ -584,7 +584,7 @@ async def like_animation(
         existing_like = like_result.scalar_one_or_none()
         
         if existing_like:
-            return ApiResponse.error(400, "已经点赞过了")
+            return ApiResponse.error("已经点赞过了", 400)
         
         # 创建点赞记录
         like = AnimationLike(
@@ -639,7 +639,7 @@ async def unlike_animation(
         like = like_result.scalar_one_or_none()
         
         if not like:
-            return ApiResponse.error(400, "还没有点赞")
+            return ApiResponse.error("还没有点赞", 400)
         
         # 删除点赞记录（使用 delete 语句）
         delete_stmt = delete(AnimationLike).where(
@@ -731,7 +731,7 @@ async def fork_animation(
         source_animation = source_result.scalar_one_or_none()
         
         if not source_animation:
-            return ApiResponse.error(404, "动画不存在或未公开")
+            return ApiResponse.error("动画不存在或未公开", 404)
         
         # 创建副本
         forked_animation = Animation(
@@ -788,8 +788,8 @@ async def generate_share_link(
         # 检查会员状态
         if not current_user.is_vip_active:
             return ApiResponse.error(
-                403, 
                 "分享链接功能仅对会员开放，请开通会员后使用",
+                403,
                 {"is_vip": False, "feature": "share_link"}
             )
         
@@ -803,7 +803,7 @@ async def generate_share_link(
         animation = result.scalar_one_or_none()
         
         if not animation:
-            return ApiResponse.error(404, "动画不存在或无权操作")
+            return ApiResponse.error("动画不存在或无权操作", 404)
         
         # 如果已有分享码，直接返回
         if animation.share_code:
@@ -863,7 +863,7 @@ async def get_animation_by_share_code(
         animation = result.scalar_one_or_none()
         
         if not animation:
-            return ApiResponse.error(404, "分享链接不存在或已失效")
+            return ApiResponse.error("分享链接不存在或已失效", 404)
         
         anim_data = {
             "id": animation.id,
