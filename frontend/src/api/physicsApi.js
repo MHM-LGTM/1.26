@@ -15,12 +15,27 @@
  */
 
 import axios from 'axios';
+import useAuthStore from '../store/authStore';
 
 // 生产环境使用空字符串（相对路径，通过nginx反向代理访问）
 // 开发环境使用 http://localhost:8000
 const baseURL = import.meta.env.VITE_API_BASE_URL || '';
 // CPU 上首次分割可能较慢（embedding 计算），提高超时以避免误报
 export const client = axios.create({ baseURL, timeout: 60000 });
+
+// 请求拦截器：自动携带 JWT Token
+client.interceptors.request.use(
+  (config) => {
+    const token = useAuthStore.getState().token;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
 export async function health() {
   const res = await client.get('/healthz');

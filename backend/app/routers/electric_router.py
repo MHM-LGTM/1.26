@@ -13,7 +13,7 @@
 2026-02-01 创建
 """
 
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter, UploadFile, File, Depends
 from typing import Dict, List
 from uuid import uuid4
 import asyncio
@@ -21,11 +21,13 @@ from concurrent.futures import ThreadPoolExecutor
 
 from ..models.response_schema import ApiResponse
 from ..models.electric_schema import ElectricSimulateRequest
+from ..models.user import User
 from ..utils.file_utils import save_upload_file
 from ..utils.logger import log
 from ..services.segment_service import preload_image
 from ..services.electric_multimodal_service import analyze_electric_image
 from ..services.opencv_service import extract_sprite, inpaint_remove_objects
+from ..services.auth_service import get_current_user
 
 
 router = APIRouter()
@@ -86,8 +88,10 @@ def _normalize_electric_elements(full: Dict[str, object] | None) -> List[Dict[st
 
 
 @router.post("/upload", response_model=ApiResponse)
-async def upload_circuit_image(file: UploadFile = File(...)):
+async def upload_circuit_image(file: UploadFile = File(...), current_user: User = Depends(get_current_user)):
     """保存电路图图片，预热 embedding 并调用 AI 识别电学元件。
+    
+    **需要登录才能使用此功能**
     
     返回字段说明：
     - `path`: 图片在后端的保存路径
@@ -158,8 +162,10 @@ async def upload_circuit_image(file: UploadFile = File(...)):
 
 
 @router.post("/simulate", response_model=ApiResponse)
-async def simulate_circuit(req: ElectricSimulateRequest):
+async def simulate_circuit(req: ElectricSimulateRequest, current_user: User = Depends(get_current_user)):
     """处理电路元件，生成精灵图。
+    
+    **需要登录才能使用此功能**
     
     注意：导线识别和电路计算由前端处理，后端只负责生成精灵图。
     """

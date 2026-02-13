@@ -12,6 +12,7 @@ import JoinUsModal from './JoinUsModal';
 import MembershipModal from './MembershipModal';
 import TutorialModal from './TutorialModal';
 import FeedbackModal from './FeedbackModal';
+import { showToast } from '../utils/toast.js';
 import '../components/Auth/styles.css';
 
 export default function AboutMenu() {
@@ -44,10 +45,12 @@ export default function AboutMenu() {
     
     switch(option) {
       case '加入我们':
-        setShowJoinUsModal(true);
+        // 【2026-02-09 临时禁用】显示即将开放提示
+        showToast.info('功能即将开放，敬请期待 🎉', 3000);
         break;
       case '会员获取':
-        setShowMembershipModal(true);
+        // 【2026-02-09 临时禁用】显示即将开放提示
+        showToast.info('功能即将开放，敬请期待 🎉', 3000);
         break;
       case '使用教程':
         setShowTutorialModal(true);

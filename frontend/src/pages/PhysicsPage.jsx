@@ -21,6 +21,7 @@ import UserMenu from '../components/Auth/UserMenu.jsx';
 import AboutMenu from '../components/AboutMenu.jsx';
 import Footer from '../components/Footer.jsx';
 import useAuthStore from '../store/authStore.js';
+import { showToast } from '../utils/toast.js';
 
 export default function PhysicsPage() {
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -72,6 +73,11 @@ export default function PhysicsPage() {
     }
   };
 
+  // 【2026-02-09 临时禁用】处理电学按钮点击
+  const handleElectricClick = () => {
+    showToast.info('电学功能即将开放，敬请期待 🎉', 3000);
+  };
+
   return (
     <div className="page-wrapper">
       <div className="topbar">
@@ -87,7 +93,8 @@ export default function PhysicsPage() {
             </button>
             <button
               className={`scene-btn ${sceneType === 'electric' ? 'active' : ''}`}
-              onClick={() => setSceneType('electric')}
+              onClick={handleElectricClick}
+              style={{ opacity: 0.6, cursor: 'not-allowed' }}
             >
               电学
             </button>

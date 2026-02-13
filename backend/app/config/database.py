@@ -35,8 +35,11 @@ engine = create_async_engine(
     DATABASE_URL, 
     echo=False,  # 生产环境设为 False
     future=True,
-    pool_pre_ping=True,  # 连接池预检测
-    pool_recycle=3600,   # 连接回收时间（秒）
+    pool_pre_ping=True,  # 连接池预检测：每次从池中取连接前先ping，避免使用已断开的连接
+    pool_recycle=3600,   # 连接回收时间（秒）：连接在池中最多保留1小时后回收
+    pool_size=20,        # 连接池大小：保持20个数据库连接（原来默认5个）
+    max_overflow=30,     # 最大溢出连接数：高峰时最多额外创建30个连接（原来默认10个）
+    # 总并发能力：20 + 30 = 50个并发数据库连接
 )
 
 # 创建异步会话工厂

@@ -9,22 +9,29 @@
 - 将 `/render` 接入 Manim/Claude/TTS 等服务，异步渲染并提供进度查询路由。
 """
 
-from fastapi import APIRouter, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, UploadFile, File, BackgroundTasks, Depends
 from uuid import uuid4
 
 from ..models.response_schema import ApiResponse
 from ..models.math_schema import MathRenderRequest
+from ..models.user import User
 from ..utils.file_utils import save_upload_file
 from ..utils.logger import log
+from ..services.auth_service import get_current_user
 
 
 router = APIRouter()
 
 
 @router.post("/upload", response_model=ApiResponse)
-async def upload_image(file: UploadFile = File(...)):
+async def upload_image(file: UploadFile = File(...), current_user: User = Depends(get_current_user)):
+    """
+    上传数学题图片
+    
+    **需要登录才能使用此功能**
+    """
     abs_path, relative_path = await save_upload_file(file, "math")
-    log.info(f"Math image saved: {abs_path}")
+    log.info(f"Math image saved by user {current_user.id}: {abs_path}")
     return ApiResponse.ok({"path": str(abs_path)})
 
 

@@ -1,0 +1,8 @@
+# 赠送30天会员
+python backend/grant_vip.py 13800138000 30 "感谢参与调研"
+
+# 赠送永久会员
+python backend/grant_vip.py 13800138000 0 "核心测试用户"
+
+# 列出所有会员用户
+python backend/grant_vip.py --list

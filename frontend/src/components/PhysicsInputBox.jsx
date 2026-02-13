@@ -389,6 +389,16 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
 
   const onFilePicked = async (file) => {
     if (!file) return;
+    
+    // ========================================================================
+    // 【2026-02-11 新增】检查登录状态 - 只有登录用户才能上传图片
+    // ========================================================================
+    const { isLoggedIn } = useAuthStore.getState();
+    if (!isLoggedIn) {
+      showToast.warning('请先登录后再上传图片，未登录用户可以浏览和调试动画广场的动画');
+      return;
+    }
+    
     setError('');
     setLoading(true);
     try {
@@ -427,7 +437,12 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         onClearPlazaSelection();
       }
     } catch (e) {
-      setError(e?.response?.data?.message || e?.message || '图片上传失败');
+      // 处理 401 未授权错误
+      if (e?.response?.status === 401) {
+        showToast.error('登录已过期，请重新登录');
+      } else {
+        setError(e?.response?.data?.message || e?.message || '图片上传失败');
+      }
     } finally {
       setLoading(false);
     }
@@ -468,11 +483,30 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
 
   const handleDrop = (e) => {
     e.preventDefault();
+    
+    // ========================================================================
+    // 【2026-02-11 新增】拖拽上传时也需要检查登录状态
+    // ========================================================================
+    const { isLoggedIn } = useAuthStore.getState();
+    if (!isLoggedIn) {
+      showToast.warning('请先登录后再上传图片，未登录用户可以浏览和调试动画广场的动画');
+      return;
+    }
+    
     const file = e.dataTransfer?.files?.[0];
     onFilePicked(file);
   };
 
   const handleClickUpload = () => {
+    // ========================================================================
+    // 【2026-02-11 新增】点击上传时也需要检查登录状态
+    // ========================================================================
+    const { isLoggedIn } = useAuthStore.getState();
+    if (!isLoggedIn) {
+      showToast.warning('请先登录后再上传图片，未登录用户可以浏览和调试动画广场的动画');
+      return;
+    }
+    
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -1495,14 +1529,14 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
                               textAlign: 'left',
                               padding: '6px 10px',
                               fontSize: 13,
-                              backgroundColor: e.is_concave ? '#fef3c7' : '#f8fafc',
-                              borderColor: e.is_concave ? '#f59e0b' : '#e2e8f0',
+                              backgroundColor: '#f8fafc',
+                              borderColor: '#e2e8f0',
                               width: '100%',
                               whiteSpace: 'nowrap',
                             }}
                             onClick={() => assignCurrentSelection(e, i)}
                           >
-                            {e.display_name || e.name}{e.is_concave ? '（凹面体）' : ''}
+                            {e.display_name || e.name}
                           </button>
                         ))}
                      </div>
@@ -1805,13 +1839,13 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
                               display: 'inline-block',
                               padding: '4px 10px',
                               borderRadius: 10,
-                              backgroundColor: elem.is_concave ? '#fef3c7' : '#eef',
-                              color: elem.is_concave ? '#92400e' : '#334',
+                              backgroundColor: '#eef',
+                              color: '#334',
                               fontSize: 12,
                               fontWeight: 500
                             }}
                           >
-                            {elem.display_name || elem.name}{elem.is_concave ? '（凹面体）' : ''}
+                            {elem.display_name || elem.name}
                           </span>
                         ))}
                         <span style={{ color: '#9ca3af', fontSize: 11 }}>请在图中框选</span>

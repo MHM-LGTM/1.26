@@ -29,7 +29,7 @@
 - 在 `/upload` 增加题目文本，以提升参数推断准确性。
 """
 
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter, UploadFile, File, Depends
 from typing import Dict, List
 from uuid import uuid4
 import asyncio
@@ -39,11 +39,13 @@ import numpy as np
 
 from ..models.response_schema import ApiResponse
 from ..models.physics_schema import PhysicsSegmentRequest, PhysicsSimulateRequest
+from ..models.user import User
 from ..utils.file_utils import save_upload_file
 from ..utils.logger import log
 from ..services.segment_service import segment_with_points, segment_with_box, preload_image
 from ..services.multimodal_service import analyze_physics_image
 from ..services.opencv_service import extract_sprite, inpaint_remove_objects
+from ..services.auth_service import get_current_user
 
 
 router = APIRouter()
@@ -202,8 +204,10 @@ def _normalize_elements(full: Dict[str, object] | None) -> List[Dict[str, object
 
 
 @router.post("/upload", response_model=ApiResponse)
-async def upload_image(file: UploadFile = File(...)):
+async def upload_image(file: UploadFile = File(...), current_user = Depends(get_current_user)):
     """保存物理模拟图片，预热 embedding 并调用豆包分析，返回元素与耗时。
+    
+    **需要登录才能使用此功能**
 
     并发控制：
     - 最多允许5个用户同时进行预热+AI识别
@@ -304,8 +308,11 @@ async def upload_image(file: UploadFile = File(...)):
 
 
 @router.post("/segment", response_model=ApiResponse)
-async def segment(req: PhysicsSegmentRequest):
-    """调用 SAM 根据点击点或框选生成掩码并返回轮廓坐标。"""
+async def segment(req: PhysicsSegmentRequest, current_user: User = Depends(get_current_user)):
+    """调用 SAM 根据点击点或框选生成掩码并返回轮廓坐标。
+    
+    **需要登录才能使用此功能**
+    """
     if not req.image_path:
         return ApiResponse.error("请先上传图片后再进行分割")
 
@@ -329,8 +336,11 @@ async def segment(req: PhysicsSegmentRequest):
 
 
 @router.post("/simulate", response_model=ApiResponse)
-async def simulate(req: PhysicsSimulateRequest):
-    """接收图片路径、元素与各自轮廓坐标，返回模拟任务ID与裁剪后的精灵。"""
+async def simulate(req: PhysicsSimulateRequest, current_user: User = Depends(get_current_user)):
+    """接收图片路径、元素与各自轮廓坐标，返回模拟任务ID与裁剪后的精灵。
+    
+    **需要登录才能使用此功能**
+    """
     task_id = f"sim-{uuid4().hex[:8]}"
     objects: List[Dict[str, object]] = []
     # 兼容两种元素输入形态：完整元素对象或简化字符串数组
