@@ -452,11 +452,11 @@ export function runSimulation({
             bodyB: secondBody,
             pointB: secondBody ? undefined : secondPoint,
             length: c.springLength * Math.max(sx, sy),
-            stiffness: (c.stiffness || 100) / 1000,
+            stiffness: (c.stiffness || 100) / 6000,
             damping: c.damping || 0.1,
             render: {
               visible: true,
-              lineWidth: 2,
+              lineWidth: 1,
               strokeStyle: '#000000',
               type: 'spring'
             }
@@ -485,7 +485,7 @@ export function runSimulation({
             pointA: firstBody ? undefined : firstPoint,
             bodyB: reducedBody,
             length: c.springLength * Math.max(sx, sy) - REDUCED_BODY_SIZE.width,
-            stiffness: (c.stiffness || 200) / 1000,
+            stiffness: (c.stiffness || 200) / 6000,
             damping: c.damping || 0.05,
             render: { visible: false }
           });
@@ -542,7 +542,7 @@ export function runSimulation({
           stiffness: stiffness,
           render: {
             visible: true,
-            lineWidth: 2,
+            lineWidth: 1,
             strokeStyle: c.constraintType === 'spring' ? '#22c55e' : '#000000',
             type: c.constraintType === 'spring' ? 'spring' : 'line',
           },
@@ -557,7 +557,7 @@ export function runSimulation({
           stiffness: stiffness,
           render: {
             visible: true,
-            lineWidth: 2,
+            lineWidth: 1,
             strokeStyle: c.constraintType === 'spring' ? '#22c55e' : '#000000',
             type: c.constraintType === 'spring' ? 'spring' : 'line',
           },
