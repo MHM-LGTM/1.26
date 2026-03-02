@@ -91,9 +91,14 @@ export async function detectWires(image, elements, workCanvas = null) {
   const blobs = extractAndFilterBlobs(labelData, canvas.width, canvas.height, blobCount);
   console.log('[WireDetection] 过滤后 Blob 数量:', blobs.length);
   
+  // 9.5 Blob 邻近合并：将空间上相近的 Blob 合并为 Super-Blob
+  console.log('[WireDetection] 步骤8.5: Blob 邻近合并...');
+  const mergedBlobs = mergeNearbyBlobs(blobs);
+  console.log('[WireDetection] 合并后 Blob 数量:', mergedBlobs.length);
+  
   // 10. Blob 与元件轮廓碰撞检测
   console.log('[WireDetection] 步骤9: Blob 与元件碰撞检测...');
-  const blobConnections = detectBlobElementConnections(blobs, elements);
+  const blobConnections = detectBlobElementConnections(mergedBlobs, elements);
   console.log('[WireDetection] Blob 连接信息:', blobConnections.length);
   
   // 11. 构建连接图
@@ -102,7 +107,7 @@ export async function detectWires(image, elements, workCanvas = null) {
   console.log('[WireDetection] 图节点数:', connectionGraph.nodes.length, '边数:', connectionGraph.edges.length);
   
   return {
-    blobs,                // Blob 列表
+    blobs: mergedBlobs,   // Blob 列表（合并后）
     blobConnections,      // Blob-元件连接关系
     connectionGraph,      // 连接图（用于电路分析）
     debugData: {
@@ -531,6 +536,151 @@ function extractAndFilterBlobs(labelData, width, height, blobCount) {
   console.log('[WireDetection] 过滤掉', filteredCount, '个小噪点，保留', validBlobs.length, '个有效 Blob');
   
   return validBlobs;
+}
+
+/**
+ * 合并空间上邻近的 Blob，解决逻辑导线被 CCL 切成多段的问题。
+ * 合并后的 Super-Blob 能触碰到更多元件，使电路连接图更完整。
+ */
+function mergeNearbyBlobs(blobs) {
+  const BLOB_MERGE_THRESHOLD = 15;
+
+  if (blobs.length <= 1) return blobs;
+
+  console.log('[WireDetection] Blob 邻近合并: 输入', blobs.length, '个 Blob, 阈值', BLOB_MERGE_THRESHOLD, 'px');
+
+  const uf = new UnionFind();
+  for (let i = 0; i < blobs.length; i++) {
+    uf.makeSet(i);
+  }
+
+  // 预计算每个 blob 的边界像素（懒计算缓存）
+  const boundaryCache = new Array(blobs.length).fill(null);
+  function getBoundary(idx) {
+    if (!boundaryCache[idx]) {
+      boundaryCache[idx] = extractBlobBoundary(blobs[idx]);
+    }
+    return boundaryCache[idx];
+  }
+
+  // 记录合并对之间的最近边界像素对，后续用来补桥接像素
+  const bridgePairs = []; // { i, j, p1, p2 }
+
+  for (let i = 0; i < blobs.length; i++) {
+    const bboxA = blobs[i].bbox;
+    for (let j = i + 1; j < blobs.length; j++) {
+      // bbox 粗筛：扩展 threshold 后是否重叠
+      const bboxB = blobs[j].bbox;
+      if (
+        bboxA.x + bboxA.width + BLOB_MERGE_THRESHOLD < bboxB.x ||
+        bboxB.x + bboxB.width + BLOB_MERGE_THRESHOLD < bboxA.x ||
+        bboxA.y + bboxA.height + BLOB_MERGE_THRESHOLD < bboxB.y ||
+        bboxB.y + bboxB.height + BLOB_MERGE_THRESHOLD < bboxA.y
+      ) {
+        continue;
+      }
+
+      // 精确检测：边界像素最近距离
+      const boundaryA = getBoundary(i);
+      const boundaryB = getBoundary(j);
+
+      let minDist = Infinity;
+      let bestPA = null;
+      let bestPB = null;
+
+      for (const pa of boundaryA) {
+        for (const pb of boundaryB) {
+          const d = Math.hypot(pa.x - pb.x, pa.y - pb.y);
+          if (d < minDist) {
+            minDist = d;
+            bestPA = pa;
+            bestPB = pb;
+            if (d < 1) break;
+          }
+        }
+        if (minDist < 1) break;
+      }
+
+      if (minDist <= BLOB_MERGE_THRESHOLD) {
+        uf.union(i, j);
+        bridgePairs.push({ i, j, p1: bestPA, p2: bestPB });
+      }
+    }
+  }
+
+  // 按 Union-Find 根节点分组
+  const groups = new Map();
+  for (let i = 0; i < blobs.length; i++) {
+    const root = uf.find(i);
+    if (!groups.has(root)) groups.set(root, []);
+    groups.get(root).push(i);
+  }
+
+  if (groups.size === blobs.length) {
+    console.log('[WireDetection] Blob 邻近合并: 无需合并');
+    return blobs;
+  }
+
+  // 构建 Super-Blob
+  const merged = [];
+  for (const [, indices] of groups) {
+    if (indices.length === 1) {
+      merged.push(blobs[indices[0]]);
+      continue;
+    }
+
+    // 合并像素集
+    const pixelSet = new Set();
+    const allPixels = [];
+    for (const idx of indices) {
+      for (const p of blobs[idx].pixels) {
+        const key = `${p.x},${p.y}`;
+        if (!pixelSet.has(key)) {
+          pixelSet.add(key);
+          allPixels.push(p);
+        }
+      }
+    }
+
+    // 补桥接像素：在每对合并 blob 最近边界点之间插值一条直线
+    const indicesSet = new Set(indices);
+    for (const bp of bridgePairs) {
+      if (!indicesSet.has(bp.i) || !indicesSet.has(bp.j)) continue;
+      const dx = bp.p2.x - bp.p1.x;
+      const dy = bp.p2.y - bp.p1.y;
+      const steps = Math.max(Math.abs(dx), Math.abs(dy), 1);
+      for (let s = 0; s <= steps; s++) {
+        const x = Math.round(bp.p1.x + (dx * s) / steps);
+        const y = Math.round(bp.p1.y + (dy * s) / steps);
+        const key = `${x},${y}`;
+        if (!pixelSet.has(key)) {
+          pixelSet.add(key);
+          allPixels.push({ x, y });
+        }
+      }
+    }
+
+    // 重新计算 bbox
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of allPixels) {
+      if (p.x < minX) minX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y > maxY) maxY = p.y;
+    }
+
+    merged.push({
+      label: blobs[indices[0]].label,
+      area: allPixels.length,
+      bbox: { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 },
+      pixels: allPixels
+    });
+
+    console.log(`[WireDetection] Blob 合并: [${indices.join(',')}] -> Super-Blob (${allPixels.length}px, ${indices.length}个子Blob)`);
+  }
+
+  console.log('[WireDetection] Blob 邻近合并完成:', blobs.length, '->', merged.length, '个 Blob');
+  return merged;
 }
 
 /**

@@ -30,8 +30,10 @@ import { detectWires } from '../utils/electric/wireDetection.js';
 import { analyzeCircuit, hasOpenSwitch } from '../utils/electric/circuitAnalysis.js';
 import { createCurrentRenderer } from '../utils/electric/currentRenderer.js';
 import { showToast } from '../utils/toast.js';
+import { useTranslation } from 'react-i18next';
 
 const ElectricInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClosePlazaInfo, onClearPlazaSelection }, ref) => {
+  const { t } = useTranslation();
   // ============================================================================
   // 基础状态
   // ============================================================================
@@ -98,7 +100,7 @@ const ElectricInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onCl
     loadAnimation: (sceneData, plazaAnimationId = null) => {
       console.log('[ElectricInputBox] loadAnimation 被调用');
       // TODO: 实现电学动画加载
-      showToast.info('电学动画加载功能开发中...');
+      showToast.info(t('electricDevelopingHint'));
     },
     triggerUpload: () => {
       handleClickUpload();
@@ -230,7 +232,7 @@ const ElectricInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onCl
       
     } catch (e) {
       console.error('[ElectricInputBox] 上传失败:', e);
-      setError(e?.response?.data?.message || e?.message || '图片上传失败');
+      setError(e?.response?.data?.message || e?.message || t('uploadFailed'));
     } finally {
       setLoading(false);
     }
@@ -343,11 +345,11 @@ const ElectricInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onCl
       drawContour(ctx, pts);
       
       if (!pts || pts.length === 0) {
-        setError('未分割到轮廓，请调整框选或改用点选');
+        setError(t('noSegmentContour'));
       }
     } catch (e) {
       console.error('[ElectricInputBox] 分割失败:', e);
-      setError(`分割失败：${e?.message || '请重试'}`);
+      setError(t('segmentFailed', { message: e?.message || '' }));
     } finally {
       setLoading(false);
     }
@@ -413,7 +415,7 @@ const ElectricInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onCl
       if (hasOpenSwitch(updatedAssignments)) {
         // 开关断开，停止动画但保持模拟状态
         rendererRef.current.clear();
-        setError('开关已断开，电路不通');
+        setError(t('switchOpenCircuitError'));
         return;
       } else {
         setError('');
@@ -461,20 +463,20 @@ const ElectricInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onCl
     }
 
     if (assignments.length === 0) {
-      setError('请先选择至少一个电学元件');
+      setError(t('selectAtLeastOneComponent'));
       return;
     }
 
     // 检查是否有电源
     const hasBattery = assignments.some(a => a.element_type === 'battery');
     if (!hasBattery) {
-      setError('请先选择一个电源');
+      setError(t('selectBattery'));
       return;
     }
 
     // 检查开关状态
     if (hasOpenSwitch(assignments)) {
-      setError('电路中有开关未闭合，请在右侧参数面板中闭合开关');
+      setError(t('openSwitchError'));
       return;
     }
 
@@ -570,7 +572,7 @@ const ElectricInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onCl
       
     } catch (e) {
       console.error('[ElectricInputBox] 模拟失败:', e);
-      setError(e?.message || '模拟创建失败');
+      setError(e?.message || t('simulationFailed'));
     } finally {
       setLoading(false);
     }
@@ -1234,10 +1236,10 @@ const ElectricInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onCl
     <div style={{ position: 'relative' }}>
       <div className="status-line">
         {embedMs !== null && (
-          <span style={{ marginLeft: 12 }}>embedding 预热：{embedMs} ms</span>
+          <span style={{ marginLeft: 12 }}>{t('embeddingWarmup')}{embedMs} ms</span>
         )}
         {aiMs !== null && (
-          <span style={{ marginLeft: 12 }}>元件识别：{aiMs} ms</span>
+          <span style={{ marginLeft: 12 }}>{t('componentRecognition')}{aiMs} ms</span>
         )}
       </div>
 
@@ -1359,7 +1361,7 @@ const ElectricInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onCl
                         onMouseDown={handlePopupMouseDown}
                       >
                         <span style={{ fontSize: 10, opacity: 0.5 }}>⋮⋮</span>
-                        请选择元件：
+                        {t('selectComponent')}
                       </div>
                       {pendingElements.map((e, i) => (
                         <button
@@ -1412,9 +1414,9 @@ const ElectricInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onCl
                     fontWeight: debugMode ? 'bold' : 'normal',
                     border: debugMode ? '2px solid #ff6600' : '1px solid #e5e7eb'
                   }}
-                  title="开启后将显示导线路径和连接关系，用于调试"
+                  title={t('debugMode')}
                 >
-                  {debugMode ? '🔧 调试模式' : '🔧 调试'}
+                  {debugMode ? t('debugMode') : t('debug')}
                 </button>
                 
                 <button 
@@ -1427,12 +1429,12 @@ const ElectricInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onCl
                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
                   }}
                 >
-                  {isSimulating ? '🔄 重置' : '开始模拟 →'}
+                  {isSimulating ? t('reset') : t('startSimulation')}
                 </button>
               </div>
             </div>
           ) : (
-            <div className="upload-text">+ 请将电路图上传到这里（点击或拖拽）</div>
+            <div className="upload-text">{t('uploadCircuitHint')}</div>
           )}
         </div>
         
@@ -1463,7 +1465,7 @@ const ElectricInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onCl
           {/* 识别到的元素 */}
           {recognizedElements.length > 0 && (
             <>
-              <strong style={{ fontSize: 13, color: '#334' }}>识别到的元件：</strong>
+              <strong style={{ fontSize: 13, color: '#334' }}>{t('recognizedComponents')}</strong>
               {recognizedElements.map((elem, idx) => (
                 <span
                   key={`${elem.name}-${idx}`}
@@ -1491,7 +1493,7 @@ const ElectricInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onCl
           {/* 已分配的元素 */}
           {assignments.length > 0 && (
             <>
-              <strong style={{ fontSize: 13, color: '#334' }}>已选择：</strong>
+              <strong style={{ fontSize: 13, color: '#334' }}>{t('selected')}</strong>
               {assignments.map((a, i) => (
                 <span
                   key={a.label + i}
@@ -1509,14 +1511,14 @@ const ElectricInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onCl
                 </span>
               ))}
               <span style={{ color: '#6b7280', fontSize: 12 }}>
-                完成 {assignments.length}/{recognizedElements.length}
+                {t('complete')} {assignments.length}/{recognizedElements.length}
               </span>
             </>
           )}
         </div>
       )}
 
-      {loading && <LoadingSpinner text="处理中..." />}
+      {loading && <LoadingSpinner text={t('processing')} />}
       <ErrorToast message={error} />
     </div>
   );

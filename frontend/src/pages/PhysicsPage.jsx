@@ -12,6 +12,7 @@
  */
 
 import React, { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import PhysicsInputBox from '../components/PhysicsInputBox.jsx';
 import ElectricInputBox from '../components/ElectricInputBox.jsx';
 import MyAnimationsPanel from '../components/MyAnimationsPanel.jsx';
@@ -19,11 +20,13 @@ import PlazaPanel from '../components/PlazaPanel.jsx';
 import LoginModal from '../components/Auth/LoginModal.jsx';
 import UserMenu from '../components/Auth/UserMenu.jsx';
 import AboutMenu from '../components/AboutMenu.jsx';
+import LanguageSwitcher from '../components/LanguageSwitcher.jsx';
 import Footer from '../components/Footer.jsx';
 import useAuthStore from '../store/authStore.js';
 import { showToast } from '../utils/toast.js';
 
 export default function PhysicsPage() {
+  const { t } = useTranslation();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [plazaAnimationInfo, setPlazaAnimationInfo] = useState(null); // 广场动画信息
   const [currentAnimationSource, setCurrentAnimationSource] = useState(null); // 'my' | 'plaza' | null
@@ -73,11 +76,6 @@ export default function PhysicsPage() {
     }
   };
 
-  // 【2026-02-09 临时禁用】处理电学按钮点击
-  const handleElectricClick = () => {
-    showToast.info('电学功能即将开放，敬请期待 🎉', 3000);
-  };
-
   return (
     <div className="page-wrapper">
       <div className="topbar">
@@ -89,14 +87,13 @@ export default function PhysicsPage() {
               className={`scene-btn ${sceneType === 'mechanics' ? 'active' : ''}`}
               onClick={() => setSceneType('mechanics')}
             >
-              运动学/力学
+              {t('mechanics')}
             </button>
             <button
               className={`scene-btn ${sceneType === 'electric' ? 'active' : ''}`}
-              onClick={handleElectricClick}
-              style={{ opacity: 0.6, cursor: 'not-allowed' }}
+              onClick={() => showToast.info(t('featureComingSoon'), 3000)}
             >
-              电学
+              {t('electric')}
             </button>
           </div>
         </div>
@@ -110,9 +107,10 @@ export default function PhysicsPage() {
               className="login-btn"
               onClick={() => setShowLoginModal(true)}
             >
-              登录 / 注册
+              {t('login')}
             </button>
           )}
+          <LanguageSwitcher />
           <AboutMenu />
         </div>
       </div>

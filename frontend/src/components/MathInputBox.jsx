@@ -12,12 +12,14 @@
  */
 
 import React, { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { uploadImage, renderDemo } from '../api/mathApi.js';
 import LoadingSpinner from './LoadingSpinner.jsx';
 import ErrorToast from './ErrorToast.jsx';
 
 export default function MathInputBox() {
-  const [prompt, setPrompt] = useState('演示：请展示抛物线 y = x^2');
+  const { t } = useTranslation();
+  const [prompt, setPrompt] = useState(t('mathDemoDefault'));
   const [imagePreview, setImagePreview] = useState('');
   const [imagePath, setImagePath] = useState('');
   const [taskId, setTaskId] = useState('');
@@ -43,7 +45,7 @@ export default function MathInputBox() {
       const resp = await uploadImage(file);
       setImagePath(resp?.data?.path || '');
     } catch (e) {
-      setError(e?.response?.data?.message || e?.message || '图片上传失败');
+      setError(e?.response?.data?.message || e?.message || t('uploadFailed'));
     } finally {
       setLoading(false);
     }
@@ -56,7 +58,7 @@ export default function MathInputBox() {
       const resp = await renderDemo({ prompt, image_path: imagePath || null });
       setTaskId(resp?.data?.task_id || '');
     } catch (e) {
-      setError('创建渲染任务失败');
+      setError(t('renderTaskFailed'));
     } finally {
       setLoading(false);
     }
@@ -70,7 +72,7 @@ export default function MathInputBox() {
           onChange={(e) => setPrompt(e.target.value)}
           rows={6}
           style={{ width: '100%', padding: '12px 12px 48px', borderRadius: 12, border: '2px solid #d0d0d0' }}
-          placeholder="输入你的数学问题或演示描述"
+          placeholder={t('mathInputPlaceholder')}
         />
         {/* 左下角：上传题图按钮 */}
         <button
@@ -78,7 +80,7 @@ export default function MathInputBox() {
           onClick={pickFile}
           style={{ position: 'absolute', left: 10, bottom: 8 }}
         >
-          上传题图
+          {t('uploadMathImage')}
         </button>
         {/* 右下角：创建讲解视频按钮 */}
         <button
@@ -87,7 +89,7 @@ export default function MathInputBox() {
           disabled={loading}
           style={{ position: 'absolute', right: 10, bottom: 8 }}
         >
-          创建讲解视频 →
+          {t('createDemoVideo')}
         </button>
       </div>
       {/* 隐藏文件输入（由“上传题图”按钮触发） */}
@@ -106,8 +108,8 @@ export default function MathInputBox() {
         </div>
       )}
 
-      {taskId && <div className="status-line">任务创建成功，task_id：{taskId}</div>}
-      {loading && <LoadingSpinner text="处理中..." />}
+      {taskId && <div className="status-line">{t('taskCreated')}task_id: {taskId}</div>}
+      {loading && <LoadingSpinner text={t('processing')} />}
       <ErrorToast message={error} />
     </div>
   );

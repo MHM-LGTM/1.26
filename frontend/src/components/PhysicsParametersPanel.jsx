@@ -9,6 +9,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import './PhysicsParametersPanel.css';
 
 // ============================================================================
@@ -73,10 +74,8 @@ const getParametersByType = (obj) => {
         constraint_stiffness: obj.parameters?.constraint_stiffness ?? 1.0,
         restitution: obj.parameters?.restitution ?? 0.5,
         friction_coefficient: obj.parameters?.friction_coefficient ?? 0.2,
-        air_drag: obj.parameters?.air_drag ?? 0.0,
         initial_velocity_px_s: obj.parameters?.initial_velocity_px_s ?? 0,
         initial_velocity_y_px_s: obj.parameters?.initial_velocity_y_px_s ?? 0,
-        initial_angular_velocity_rad_s: obj.parameters?.initial_angular_velocity_rad_s ?? 0,
       }
     };
   }
@@ -86,7 +85,6 @@ const getParametersByType = (obj) => {
     return {
       type: 'static',
       params: {
-        restitution: obj.parameters?.restitution ?? 0.5,
         friction_coefficient: obj.parameters?.friction_coefficient ?? 0.5,
       }
     };
@@ -97,22 +95,45 @@ const getParametersByType = (obj) => {
         mass_kg: obj.parameters?.mass_kg ?? 1.0,
         restitution: obj.parameters?.restitution ?? 0.5,
         friction_coefficient: obj.parameters?.friction_coefficient ?? 0.2,
-        air_drag: obj.parameters?.air_drag ?? 0.0,
         initial_velocity_px_s: obj.parameters?.initial_velocity_px_s ?? 0,
         initial_velocity_y_px_s: obj.parameters?.initial_velocity_y_px_s ?? 0,
-        initial_angular_velocity_rad_s: obj.parameters?.initial_angular_velocity_rad_s ?? 0,
+        // 运动轨迹参数
+        show_trail: obj.parameters?.show_trail ?? false,
+        trail_color: obj.parameters?.trail_color ?? '#ffd700',
+        // 自定义路径参数
+        custom_path_enabled: obj.parameters?.custom_path_enabled ?? false,
+        path_speed: obj.parameters?.path_speed ?? 100,
+        custom_path_points: obj.parameters?.custom_path_points ?? [],
       }
     };
   }
 };
 
 const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalParametersChange, globalParameters, isSimulationRunning }) => {
+  const { t } = useTranslation();
   const [selectedObjectIndex, setSelectedObjectIndex] = useState(0);
   const [localParams, setLocalParams] = useState({});
   const [parameterType, setParameterType] = useState('dynamic');
   
   // 全局参数：时间缩放
   const [timeScale, setTimeScale] = useState(1.0);
+  
+  // 路径可视化显示开关（仅影响运行时显示，不是物理参数）
+  const [showPathVisuals, setShowPathVisuals] = useState(true);
+
+  // 将当前值持续暴露给window，供PhysicsInputBox在创建引擎时读取初始值
+  useEffect(() => {
+    window.currentPathVisualsVisible = showPathVisuals;
+  }, [showPathVisuals]);
+
+  // 模拟启动时，将当前的路径可视化状态同步到引擎
+  // 修复：无论路径开关处于何种状态，点击开始模拟后引擎默认showPathVisuals=true
+  // 需要在模拟启动后立刻将UI状态同步过去
+  useEffect(() => {
+    if (isSimulationRunning && window.setPathVisualsVisible) {
+      window.setPathVisualsVisible(showPathVisuals);
+    }
+  }, [isSimulationRunning]);
   
   // 【2026-02-05 修复】当父组件的 globalParameters 变化时，同步更新本地的 timeScale
   // 这样当加载新动画时，时间缩放的UI显示会正确同步
@@ -159,8 +180,8 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
       <div className="physics-params-panel">
         <div className="params-empty-state">
           <div className="empty-icon">📊</div>
-          <div className="empty-text">暂无物体</div>
-          <div className="empty-hint">完成物体分割后，可在此调节物理参数</div>
+          <div className="empty-text">{t('noObjects')}</div>
+          <div className="empty-hint">{t('objectsHint')}</div>
         </div>
       </div>
     );
@@ -171,32 +192,32 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
   // 获取物体类型的显示标签
   const getTypeLabel = (type) => {
     const labels = {
-      'dynamic': '动态',
-      'static': '静态',
-      'rope': '绳索',
-      'spring': '弹簧',
-      'conveyor': '传送带',
-      'pendulum': '摆球'
+      'dynamic': t('typeDynamic'),
+      'static': t('typeStatic'),
+      'rope': t('typeRope'),
+      'spring': t('typeSpring'),
+      'conveyor': t('typeConveyor'),
+      'pendulum': t('typePendulum')
     };
-    return labels[type] || '物体';
+    return labels[type] || t('typeObject');
   };
 
   return (
     <div className="physics-params-panel">
       {/* 标题 */}
       <div className="params-header">
-        <div className="params-title">💡 参数修改后，点击"重置"重新应用</div>
+        <div className="params-title">{t('paramResetHint')}</div>
         {isSimulationRunning && (
           <div className="params-status-badge">
             <span className="status-dot"></span>
-            运行中
+            {t('running')}
           </div>
         )}
       </div>
 
       {/* 物体选择器 */}
       <div className="object-selector">
-        <label className="selector-label">选择物体：</label>
+        <label className="selector-label">{t('selectObject')}</label>
         <div className="object-tabs">
           {objects.map((obj, idx) => {
             const { type } = getParametersByType(obj);
@@ -206,7 +227,7 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
                 className={`object-tab ${selectedObjectIndex === idx ? 'active' : ''}`}
                 onClick={() => setSelectedObjectIndex(idx)}
               >
-                {obj.label || obj.name || `物体${idx + 1}`}
+                {obj.label || obj.name || `${t('typeObject')}${idx + 1}`}
                 <span className="type-badge">{getTypeLabel(type)}</span>
               </button>
             );
@@ -220,19 +241,19 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
         {/* 全局参数：时间缩放（慢镜头/快镜头）- 始终显示 */}
         {/* ====================================================================== */}
         <div className="param-section">
-          <div className="section-title">⏱️ 时间缩放</div>
+          <div className="section-title">{t('timeScaleTitle')}</div>
           
           <div className="param-item">
             <div className="param-header">
               <label className="param-label">
-                时间速度 
+                {t('timeSpeed')} 
                 <span style={{ 
                   marginLeft: '8px', 
                   fontSize: '11px', 
                   color: timeScale < 0.8 ? '#f59e0b' : timeScale > 1.2 ? '#10b981' : '#6b7280',
                   fontWeight: 600
                 }}>
-                  {timeScale < 0.8 ? '🐢 慢镜头' : timeScale > 1.2 ? '⚡ 快镜头' : '⏸️ 正常'}
+                  {timeScale < 0.8 ? t('slowMotion') : timeScale > 1.2 ? t('fastMotion') : t('normalSpeed')}
                 </span>
               </label>
               <input
@@ -255,7 +276,7 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
               onChange={(e) => handleTimeScaleChange(parseFloat(e.target.value))}
             />
             <div className="param-hint">
-              1.0 = 正常速度 | 0.5 = 慢镜头 | 2.0 = 快镜头（全局影响所有物体）
+              {t('timeScaleHint')}
             </div>
           </div>
         </div>
@@ -265,12 +286,12 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
         {/* ====================================================================== */}
         {parameterType === 'rope' && (
           <div className="param-section">
-            <div className="section-title">🪢 绳索参数</div>
+            <div className="section-title">{t('ropeParamsTitle')}</div>
             
             {/* 绳子段数 */}
             <div className="param-item">
               <div className="param-header">
-                <label className="param-label">绳子段数</label>
+                <label className="param-label">{t('ropeSegments')}</label>
                 <input
                   type="number"
                   className="param-value-input"
@@ -290,13 +311,13 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
                 value={localParams.segments ?? 25}
                 onChange={(e) => handleParamChange('segments', parseInt(e.target.value))}
               />
-              <div className="param-hint">建议20-30段，段数越多越平滑但性能开销越大</div>
+              <div className="param-hint">{t('ropeSegmentsHint')}</div>
             </div>
 
             {/* 刚度系数 */}
             <div className="param-item">
               <div className="param-header">
-                <label className="param-label">刚度系数</label>
+                <label className="param-label">{t('stiffnessCoefficient')}</label>
                 <input
                   type="number"
                   className="param-value-input"
@@ -316,13 +337,13 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
                 value={localParams.stiffness ?? 0.95}
                 onChange={(e) => handleParamChange('stiffness', parseFloat(e.target.value))}
               />
-              <div className="param-hint">⚠️ 建议0.93-0.96，值越大绳子越硬</div>
+              <div className="param-hint">{t('stiffnessHint')}</div>
             </div>
 
             {/* 阻尼系数 */}
             <div className="param-item">
               <div className="param-header">
-                <label className="param-label">阻尼系数</label>
+                <label className="param-label">{t('dampingCoefficient')}</label>
                 <input
                   type="number"
                   className="param-value-input"
@@ -342,7 +363,7 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
                 value={localParams.damping ?? 0.98}
                 onChange={(e) => handleParamChange('damping', parseFloat(e.target.value))}
               />
-              <div className="param-hint">建议0.97-0.98，值越小衰减越快</div>
+              <div className="param-hint">{t('dampingHint')}</div>
             </div>
           </div>
         )}
@@ -352,12 +373,12 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
         {/* ====================================================================== */}
         {parameterType === 'spring' && (
           <div className="param-section">
-            <div className="section-title">⚙️ 弹簧参数</div>
+            <div className="section-title">{t('springParamsTitle')}</div>
             
             {/* 劲度系数 */}
             <div className="param-item">
               <div className="param-header">
-                <label className="param-label">劲度系数</label>
+                <label className="param-label">{t('springStiffness')}</label>
                 <input
                   type="number"
                   className="param-value-input"
@@ -376,13 +397,13 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
                 value={localParams.spring_stiffness ?? 100}
                 onChange={(e) => handleParamChange('spring_stiffness', parseFloat(e.target.value))}
               />
-              <div className="param-hint">弹簧的硬度，值越大弹簧越硬</div>
+              <div className="param-hint">{t('springStiffnessHint')}</div>
             </div>
 
             {/* 阻尼系数 */}
             <div className="param-item">
               <div className="param-header">
-                <label className="param-label">阻尼系数</label>
+                <label className="param-label">{t('dampingCoefficient')}</label>
                 <input
                   type="number"
                   className="param-value-input"
@@ -402,7 +423,7 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
                 value={localParams.spring_damping ?? 0.1}
                 onChange={(e) => handleParamChange('spring_damping', parseFloat(e.target.value))}
               />
-              <div className="param-hint">弹簧振动的衰减速度，值越大衰减越快</div>
+              <div className="param-hint">{t('springDampingHint')}</div>
             </div>
           </div>
         )}
@@ -413,12 +434,12 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
         {parameterType === 'conveyor' && (
           <>
             <div className="param-section">
-              <div className="section-title">🔄 传送带参数</div>
+              <div className="section-title">{t('conveyorParamsTitle')}</div>
               
               {/* 传送速度 */}
               <div className="param-item">
                 <div className="param-header">
-                  <label className="param-label">传送速度 (px/s)</label>
+                  <label className="param-label">{t('conveyorSpeed')}</label>
                   <input
                     type="number"
                     className="param-value-input"
@@ -436,13 +457,13 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
                   value={localParams.conveyor_speed ?? 0}
                   onChange={(e) => handleParamChange('conveyor_speed', parseFloat(e.target.value))}
                 />
-                <div className="param-hint">传送带的移动速度，正值向右，负值向左</div>
+                <div className="param-hint">{t('conveyorSpeedHint')}</div>
               </div>
 
               {/* 弹性系数 */}
               <div className="param-item">
                 <div className="param-header">
-                  <label className="param-label">弹性系数</label>
+                  <label className="param-label">{t('elasticity')}</label>
                   <input
                     type="number"
                     className="param-value-input"
@@ -462,13 +483,13 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
                   value={localParams.restitution ?? 0.5}
                   onChange={(e) => handleParamChange('restitution', parseFloat(e.target.value))}
                 />
-                <div className="param-hint">0 = 非弹性碰撞，1 = 弹性碰撞</div>
+                <div className="param-hint">{t('elasticityHint')}</div>
               </div>
 
               {/* 摩擦系数 */}
               <div className="param-item">
                 <div className="param-header">
-                  <label className="param-label">摩擦系数</label>
+                  <label className="param-label">{t('friction')}</label>
                   <input
                     type="number"
                     className="param-value-input"
@@ -488,7 +509,7 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
                   value={localParams.friction_coefficient ?? 0.8}
                   onChange={(e) => handleParamChange('friction_coefficient', parseFloat(e.target.value))}
                 />
-                <div className="param-hint">传送带表面的摩擦力，影响传送效果</div>
+                <div className="param-hint">{t('conveyorFrictionHint')}</div>
               </div>
             </div>
           </>
@@ -500,12 +521,12 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
         {parameterType === 'pendulum' && (
           <>
             <div className="param-section">
-              <div className="section-title">🔗 约束参数</div>
+              <div className="section-title">{t('constraintParamsTitle')}</div>
               
               {/* 约束刚度 */}
               <div className="param-item">
                 <div className="param-header">
-                  <label className="param-label">约束刚度</label>
+                  <label className="param-label">{t('constraintStiffness')}</label>
                   <input
                     type="number"
                     className="param-value-input"
@@ -525,17 +546,17 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
                   value={localParams.constraint_stiffness ?? 1.0}
                   onChange={(e) => handleParamChange('constraint_stiffness', parseFloat(e.target.value))}
                 />
-                <div className="param-hint">约束的硬度，1.0为刚性杆，小于1为柔性绳</div>
+                <div className="param-hint">{t('constraintStiffnessHint')}</div>
               </div>
             </div>
             
             <div className="param-section">
-              <div className="section-title">📊 基础参数</div>
+              <div className="section-title">{t('basicParamsTitle')}</div>
               
               {/* 质量 */}
               <div className="param-item">
                 <div className="param-header">
-                  <label className="param-label">质量 (kg)</label>
+                  <label className="param-label">{t('mass')}</label>
                   <input
                     type="number"
                     className="param-value-input"
@@ -554,13 +575,13 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
                   value={localParams.mass_kg ?? 1.0}
                   onChange={(e) => handleParamChange('mass_kg', parseFloat(e.target.value))}
                 />
-                <div className="param-hint">摆球的质量</div>
+                <div className="param-hint">{t('pendulumMassHint')}</div>
               </div>
 
               {/* 弹性系数 */}
               <div className="param-item">
                 <div className="param-header">
-                  <label className="param-label">弹性系数</label>
+                  <label className="param-label">{t('elasticity')}</label>
                   <input
                     type="number"
                     className="param-value-input"
@@ -580,13 +601,13 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
                   value={localParams.restitution ?? 0.5}
                   onChange={(e) => handleParamChange('restitution', parseFloat(e.target.value))}
                 />
-                <div className="param-hint">0 = 非弹性碰撞，1 = 弹性碰撞</div>
+                <div className="param-hint">{t('elasticityHint')}</div>
               </div>
 
               {/* 摩擦系数 */}
               <div className="param-item">
                 <div className="param-header">
-                  <label className="param-label">摩擦系数</label>
+                  <label className="param-label">{t('friction')}</label>
                   <input
                     type="number"
                     className="param-value-input"
@@ -606,33 +627,7 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
                   value={localParams.friction_coefficient ?? 0.2}
                   onChange={(e) => handleParamChange('friction_coefficient', parseFloat(e.target.value))}
                 />
-                <div className="param-hint">摆球与其他物体的摩擦</div>
-              </div>
-
-              {/* 空气阻力 */}
-              <div className="param-item">
-                <div className="param-header">
-                  <label className="param-label">空气阻力</label>
-                  <input
-                    type="number"
-                    className="param-value-input"
-                    value={localParams.air_drag ?? 0.0}
-                    onChange={(e) => handleParamChange('air_drag', parseFloat(e.target.value) || 0)}
-                    step="0.001"
-                    min="0"
-                    max="0.1"
-                  />
-                </div>
-                <input
-                  type="range"
-                  className="param-slider"
-                  min="0"
-                  max="0.1"
-                  step="0.001"
-                  value={localParams.air_drag ?? 0.0}
-                  onChange={(e) => handleParamChange('air_drag', parseFloat(e.target.value))}
-                />
-                <div className="param-hint">影响摆动的衰减</div>
+                <div className="param-hint">{t('pendulumFrictionHint')}</div>
               </div>
             </div>
           </>
@@ -643,38 +638,12 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
         {/* ====================================================================== */}
         {parameterType === 'static' && (
           <div className="param-section">
-            <div className="section-title">📊 基础参数</div>
+            <div className="section-title">{t('basicParamsTitle')}</div>
             
-            {/* 弹性系数 */}
-            <div className="param-item">
-              <div className="param-header">
-                <label className="param-label">弹性系数</label>
-                <input
-                  type="number"
-                  className="param-value-input"
-                  value={localParams.restitution ?? 0.5}
-                  onChange={(e) => handleParamChange('restitution', parseFloat(e.target.value) || 0)}
-                  step="0.01"
-                  min="0"
-                  max="1"
-                />
-              </div>
-              <input
-                type="range"
-                className="param-slider"
-                min="0"
-                max="1"
-                step="0.01"
-                value={localParams.restitution ?? 0.5}
-                onChange={(e) => handleParamChange('restitution', parseFloat(e.target.value))}
-              />
-              <div className="param-hint">0 = 非弹性碰撞，1 = 弹性碰撞</div>
-            </div>
-
             {/* 摩擦系数 */}
             <div className="param-item">
               <div className="param-header">
-                <label className="param-label">摩擦系数</label>
+                <label className="param-label">{t('friction')}</label>
                 <input
                   type="number"
                   className="param-value-input"
@@ -694,7 +663,7 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
                 value={localParams.friction_coefficient ?? 0.5}
                 onChange={(e) => handleParamChange('friction_coefficient', parseFloat(e.target.value))}
               />
-              <div className="param-hint">表面的滑动阻力</div>
+              <div className="param-hint">{t('surfaceFrictionHint')}</div>
             </div>
           </div>
         )}
@@ -704,13 +673,126 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
         {/* ====================================================================== */}
         {parameterType === 'dynamic' && (
           <>
+            {/* 自定义路径参数 */}
             <div className="param-section">
-              <div className="section-title">📊 基础参数</div>
+              <div className="section-title">{t('customPathTitle')}</div>
+              
+              {/* 启用自定义路径开关 */}
+              <div className="param-item">
+                <div className="param-header" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label className="param-label">{t('customPathMode')}</label>
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={localParams.custom_path_enabled ?? false}
+                      onChange={(e) => handleParamChange('custom_path_enabled', e.target.checked)}
+                      style={{ marginRight: '8px', width: '18px', height: '18px', cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: '13px', color: localParams.custom_path_enabled ? '#10b981' : '#6b7280' }}>
+                      {localParams.custom_path_enabled ? t('enabled') : t('notEnabled')}
+                    </span>
+                  </label>
+                </div>
+                <div className="param-hint">{t('customPathHint')}</div>
+              </div>
+
+              {/* 路径速度 - 仅在启用路径时显示 */}
+              {localParams.custom_path_enabled && (
+                <>
+                  <div className="param-item">
+                    <div className="param-header">
+                      <label className="param-label">{t('pathSpeed')}</label>
+                      <input
+                        type="number"
+                        className="param-value-input"
+                        value={localParams.path_speed ?? 100}
+                        onChange={(e) => handleParamChange('path_speed', parseFloat(e.target.value) || 100)}
+                        step="10"
+                        min="10"
+                        max="500"
+                      />
+                    </div>
+                    <input
+                      type="range"
+                      className="param-slider"
+                      min="10"
+                      max="500"
+                      step="10"
+                      value={localParams.path_speed ?? 100}
+                      onChange={(e) => handleParamChange('path_speed', parseFloat(e.target.value))}
+                    />
+                    <div className="param-hint">{t('pathSpeedHint')}</div>
+                  </div>
+                  
+                  {/* 路径编辑按钮 */}
+                  <div className="param-item">
+                    <div className="param-header" style={{ justifyContent: 'center' }}>
+                      <button
+                        onClick={() => {
+                          // 触发父组件的路径编辑回调
+                          if (window.enablePathEdit) {
+                            window.enablePathEdit(selectedObjectIndex);
+                          }
+                        }}
+                        style={{
+                          padding: '8px 16px',
+                          backgroundColor: '#f97316',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#ea580c';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#f97316';
+                        }}
+                      >
+                        {t('clickCanvasSetPath')}
+                      </button>
+                    </div>
+                    <div className="param-hint">{t('clickToSetPathPoints')}</div>
+                  </div>
+
+                  {/* 路径可视化显示开关 */}
+                  <div className="param-item">
+                    <div className="param-header" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                      <label className="param-label">{t('showPathMarker')}</label>
+                      <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={showPathVisuals}
+                          onChange={(e) => {
+                            const visible = e.target.checked;
+                            setShowPathVisuals(visible);
+                            if (window.setPathVisualsVisible) {
+                              window.setPathVisualsVisible(visible);
+                            }
+                          }}
+                          style={{ marginRight: '8px', width: '18px', height: '18px', cursor: 'pointer' }}
+                        />
+                        <span style={{ fontSize: '13px', color: showPathVisuals ? '#10b981' : '#6b7280' }}>
+                          {showPathVisuals ? t('show') : t('hidden')}
+                        </span>
+                      </label>
+                    </div>
+                    <div className="param-hint">{t('pathVisualHint')}</div>
+                  </div>
+                </>
+              )}
+            </div>
+            
+            <div className="param-section">
+              <div className="section-title">{t('basicParamsTitle')}</div>
               
               {/* 质量 */}
               <div className="param-item">
                 <div className="param-header">
-                  <label className="param-label">质量 (kg)</label>
+                  <label className="param-label">{t('mass')}</label>
                   <input
                     type="number"
                     className="param-value-input"
@@ -729,13 +811,13 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
                   value={localParams.mass_kg ?? 1.0}
                   onChange={(e) => handleParamChange('mass_kg', parseFloat(e.target.value))}
                 />
-                <div className="param-hint">物体的质量，影响惯性</div>
+                <div className="param-hint">{t('massHint')}</div>
               </div>
 
               {/* 弹性系数 */}
               <div className="param-item">
                 <div className="param-header">
-                  <label className="param-label">弹性系数</label>
+                  <label className="param-label">{t('elasticity')}</label>
                   <input
                     type="number"
                     className="param-value-input"
@@ -755,13 +837,13 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
                   value={localParams.restitution ?? 0.5}
                   onChange={(e) => handleParamChange('restitution', parseFloat(e.target.value))}
                 />
-                <div className="param-hint">0 = 非弹性碰撞，1 = 弹性碰撞</div>
+                <div className="param-hint">{t('elasticityHint')}</div>
               </div>
 
               {/* 摩擦系数 */}
               <div className="param-item">
                 <div className="param-header">
-                  <label className="param-label">摩擦系数</label>
+                  <label className="param-label">{t('friction')}</label>
                   <input
                     type="number"
                     className="param-value-input"
@@ -781,44 +863,18 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
                   value={localParams.friction_coefficient ?? 0.2}
                   onChange={(e) => handleParamChange('friction_coefficient', parseFloat(e.target.value))}
                 />
-                <div className="param-hint">物体间的滑动阻力</div>
-              </div>
-
-              {/* 空气阻力 */}
-              <div className="param-item">
-                <div className="param-header">
-                  <label className="param-label">空气阻力</label>
-                  <input
-                    type="number"
-                    className="param-value-input"
-                    value={localParams.air_drag ?? 0.0}
-                    onChange={(e) => handleParamChange('air_drag', parseFloat(e.target.value) || 0)}
-                    step="0.001"
-                    min="0"
-                    max="0.1"
-                  />
-                </div>
-                <input
-                  type="range"
-                  className="param-slider"
-                  min="0"
-                  max="0.1"
-                  step="0.001"
-                  value={localParams.air_drag ?? 0.0}
-                  onChange={(e) => handleParamChange('air_drag', parseFloat(e.target.value))}
-                />
-                <div className="param-hint">空中的减速效果</div>
+                <div className="param-hint">{t('objectFrictionHint')}</div>
               </div>
             </div>
 
             {/* 初始运动参数 */}
             <div className="param-section">
-              <div className="section-title">🚀 初始运动</div>
+              <div className="section-title">{t('initialMotionTitle')}</div>
               
               {/* 初始水平速度 */}
               <div className="param-item">
                 <div className="param-header">
-                  <label className="param-label">水平速度 (px/s)</label>
+                  <label className="param-label">{t('horizontalVelocity')}</label>
                   <input
                     type="number"
                     className="param-value-input"
@@ -836,13 +892,13 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
                   value={localParams.initial_velocity_px_s ?? 0}
                   onChange={(e) => handleParamChange('initial_velocity_px_s', parseFloat(e.target.value))}
                 />
-                <div className="param-hint">正值→右，负值→左</div>
+                <div className="param-hint">{t('horizontalVelocityHint')}</div>
               </div>
 
               {/* 初始垂直速度 */}
               <div className="param-item">
                 <div className="param-header">
-                  <label className="param-label">垂直速度 (px/s)</label>
+                  <label className="param-label">{t('verticalVelocity')}</label>
                   <input
                     type="number"
                     className="param-value-input"
@@ -860,32 +916,53 @@ const PhysicsParametersPanel = ({ objects = [], onParametersChange, onGlobalPara
                   value={localParams.initial_velocity_y_px_s ?? 0}
                   onChange={(e) => handleParamChange('initial_velocity_y_px_s', parseFloat(e.target.value))}
                 />
-                <div className="param-hint">正值→下，负值→上</div>
+                <div className="param-hint">{t('verticalVelocityHint')}</div>
+              </div>
+            </div>
+
+            {/* 运动轨迹参数 */}
+            <div className="param-section">
+              <div className="section-title">{t('motionTrailTitle')}</div>
+              
+              {/* 显示轨迹开关 */}
+              <div className="param-item">
+                <div className="param-header" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label className="param-label">{t('showMotionTrail')}</label>
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={localParams.show_trail ?? false}
+                      onChange={(e) => handleParamChange('show_trail', e.target.checked)}
+                      style={{ marginRight: '8px', width: '18px', height: '18px', cursor: 'pointer' }}
+                    />
+                    <span style={{ fontSize: '13px', color: localParams.show_trail ? '#10b981' : '#6b7280' }}>
+                      {localParams.show_trail ? t('enabled') : t('notEnabled')}
+                    </span>
+                  </label>
+                </div>
+                <div className="param-hint">{t('trailHint')}</div>
               </div>
 
-              {/* 初始角速度 */}
-              <div className="param-item">
-                <div className="param-header">
-                  <label className="param-label">旋转速度 (rad/s)</label>
-                  <input
-                    type="number"
-                    className="param-value-input"
-                    value={localParams.initial_angular_velocity_rad_s ?? 0}
-                    onChange={(e) => handleParamChange('initial_angular_velocity_rad_s', parseFloat(e.target.value) || 0)}
-                    step="0.1"
-                  />
+              {/* 轨迹颜色 - 仅在启用轨迹时显示 */}
+              {localParams.show_trail && (
+                <div className="param-item">
+                  <div className="param-header">
+                    <label className="param-label">{t('trailColor')}</label>
+                    <select
+                      className="param-value-input"
+                      value={localParams.trail_color ?? '#ffd700'}
+                      onChange={(e) => handleParamChange('trail_color', e.target.value)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <option value="#ffd700">{t('colorYellow')}</option>
+                      <option value="#000000">{t('colorBlack')}</option>
+                      <option value="#00bfff">{t('colorBlue')}</option>
+                      <option value="#00ff00">{t('colorGreen')}</option>
+                    </select>
+                  </div>
+                  <div className="param-hint">{t('trailColorHint')}</div>
                 </div>
-                <input
-                  type="range"
-                  className="param-slider"
-                  min="-10"
-                  max="10"
-                  step="0.1"
-                  value={localParams.initial_angular_velocity_rad_s ?? 0}
-                  onChange={(e) => handleParamChange('initial_angular_velocity_rad_s', parseFloat(e.target.value))}
-                />
-                <div className="param-hint">正值顺时针旋转</div>
-              </div>
+              )}
             </div>
           </>
         )}

@@ -5,10 +5,12 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 export default function ErrorToast({ message }) {
+  const { t } = useTranslation();
   if (!message) return null;
   return (
-    <div style={{ color: '#b00020', marginTop: 8 }}>错误：{message}</div>
+    <div style={{ color: '#b00020', marginTop: 8 }}>{t('errorPrefix')}{message}</div>
   );
 }

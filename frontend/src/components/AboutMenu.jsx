@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import JoinUsModal from './JoinUsModal';
 import MembershipModal from './MembershipModal';
 import TutorialModal from './TutorialModal';
@@ -16,6 +17,7 @@ import { showToast } from '../utils/toast.js';
 import '../components/Auth/styles.css';
 
 export default function AboutMenu() {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [showJoinUsModal, setShowJoinUsModal] = useState(false);
   const [showMembershipModal, setShowMembershipModal] = useState(false);
@@ -44,18 +46,18 @@ export default function AboutMenu() {
     setIsOpen(false);
     
     switch(option) {
-      case '加入我们':
+      case 'joinUs':
         // 【2026-02-09 临时禁用】显示即将开放提示
-        showToast.info('功能即将开放，敬请期待 🎉', 3000);
+        showToast.info(t('featureComingSoon'), 3000);
         break;
-      case '会员获取':
+      case 'membership':
         // 【2026-02-09 临时禁用】显示即将开放提示
-        showToast.info('功能即将开放，敬请期待 🎉', 3000);
+        showToast.info(t('featureComingSoon'), 3000);
         break;
-      case '使用教程':
+      case 'tutorial':
         setShowTutorialModal(true);
         break;
-      case '问题反馈':
+      case 'feedback':
         setShowFeedbackModal(true);
         break;
       default:
@@ -70,7 +72,7 @@ export default function AboutMenu() {
           className="user-menu-trigger" 
           onClick={() => setIsOpen(!isOpen)}
         >
-          <span>关于</span>
+          <span>{t('about')}</span>
           <svg 
             width="12" 
             height="12" 
@@ -93,17 +95,17 @@ export default function AboutMenu() {
 
         {isOpen && (
           <div className="user-menu-dropdown">
-            <div className="user-menu-item" onClick={() => handleMenuClick('加入我们')}>
-              加入我们
+            <div className="user-menu-item" onClick={() => handleMenuClick('joinUs')}>
+              {t('joinUs')}
             </div>
-            <div className="user-menu-item" onClick={() => handleMenuClick('会员获取')}>
-              会员获取
+            <div className="user-menu-item" onClick={() => handleMenuClick('membership')}>
+              {t('membership')}
             </div>
-            <div className="user-menu-item" onClick={() => handleMenuClick('使用教程')}>
-              使用教程
+            <div className="user-menu-item" onClick={() => handleMenuClick('tutorial')}>
+              {t('tutorial')}
             </div>
-            <div className="user-menu-item" onClick={() => handleMenuClick('问题反馈')}>
-              问题反馈
+            <div className="user-menu-item" onClick={() => handleMenuClick('feedback')}>
+              {t('feedback')}
             </div>
           </div>
         )}

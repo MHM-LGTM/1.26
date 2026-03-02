@@ -12,12 +12,14 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import useAuthStore from '../store/authStore';
 import ShareLinkModal from './ShareLinkModal.jsx';
 import { API_BASE_URL } from '../config/api';
 import { showToast } from '../utils/toast.js';
 
 export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
+  const { t } = useTranslation();
   const [animations, setAnimations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(null); // 当前打开菜单的动画ID
@@ -126,17 +128,17 @@ export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
         // 调用父组件传入的加载函数
         onLoadAnimation(sceneData);
       } else {
-        showToast.error(`加载失败：${data.message}`);
+        showToast.error(t('loadFailed', { message: data.message }));
       }
     } catch (error) {
       console.error('加载动画失败:', error);
-      showToast.error(`加载失败：${error.message}`);
+      showToast.error(t('loadFailed', { message: error.message }));
     }
   };
 
   // 删除动画
   const handleDelete = async (animationId) => {
-    if (!confirm('确定要删除这个动画吗？')) {
+    if (!confirm(t('confirmDelete'))) {
       return;
     }
 
@@ -151,15 +153,15 @@ export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
       const data = await response.json();
       
       if (data.code === 0) {
-        showToast.success('删除成功');
+        showToast.success(t('deleteSuccess'));
         loadAnimations(); // 刷新列表
         setMenuOpen(null); // 关闭菜单
       } else {
-        showToast.error(`删除失败：${data.message}`);
+        showToast.error(t('deleteFailed', { message: data.message }));
       }
     } catch (error) {
       console.error('删除动画失败:', error);
-      showToast.error(`删除失败：${error.message}`);
+      showToast.error(t('deleteFailed', { message: error.message }));
     }
   };
 
@@ -176,15 +178,15 @@ export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
       const data = await response.json();
       
       if (data.code === 0) {
-        showToast.success('已上传到动画广场！');
+        showToast.success(t('uploadToPlazaSuccess'));
         loadAnimations(); // 刷新列表
         setMenuOpen(null); // 关闭菜单
       } else {
-        showToast.error(`上传失败：${data.message}`);
+        showToast.error(t('uploadFailed2', { message: data.message }));
       }
     } catch (error) {
       console.error('上传动画失败:', error);
-      showToast.error(`上传失败：${error.message}`);
+      showToast.error(t('uploadFailed2', { message: error.message }));
     }
   };
 
@@ -220,14 +222,14 @@ export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
           fontWeight: 600,
           color: '#222'
         }}>
-          我的动画
+          {t('myAnimations')}
         </h3>
         <span style={{
           fontSize: 13,
           color: '#666',
           fontWeight: 500
         }}>
-          {animations.length} 个
+          {t('countUnit', { count: animations.length })}
         </span>
       </div>
 
@@ -252,7 +254,7 @@ export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
               fontSize: 14,
               margin: 0
             }}>
-              加载中...
+              {t('loading')}
             </p>
           </div>
         ) : animations.length === 0 ? (
@@ -270,9 +272,9 @@ export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
               margin: 0
             }}>
               {!isLoggedIn || !token ? (
-                <>登录后保存和查看你的动画<br/>点击右上角登录按钮开始使用</>
+                <>{t('loginToSeeAnimations')}<br/>{t('clickLoginToStart')}</>
               ) : (
-                <>还没有保存的动画<br/>运行模拟后点击"下载动画"即可保存</>
+                <>{t('noSavedAnimations')}<br/>{t('runAndSaveHint')}</>
               )}
             </p>
           </div>
@@ -452,7 +454,7 @@ export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
               key={`placeholder-${index}`}
               onClick={() => {
                 if (!isLoggedIn || !token) {
-                  showToast.warning('请先登录后再创建动画');
+                  showToast.warning(t('pleaseLoginToCreate'));
                 } else if (onUploadClick) {
                   onUploadClick();
                 }
@@ -611,7 +613,7 @@ export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
             onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
           >
-            删除
+            {t('delete')}
           </button>
 
           {/* 上传到广场 / 从广场下架 */}
@@ -625,12 +627,12 @@ export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
                   });
                   const data = await response.json();
                   if (data.code === 0) {
-                    showToast.success('已从广场下架');
+                    showToast.success(t('removedFromPlaza'));
                     loadAnimations();
                     setMenuOpen(null);
                   }
                 } catch (error) {
-                  showToast.error('下架失败');
+                  showToast.error(t('removeFailed'));
                 }
               }}
               style={{
@@ -649,7 +651,7 @@ export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
               onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
               onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
             >
-              从广场下架
+              {t('removeFromPlaza')}
             </button>
           ) : (
             <button
@@ -670,7 +672,7 @@ export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
               onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
               onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
             >
-              上传到广场
+              {t('uploadToPlaza')}
             </button>
           )}
 
@@ -696,7 +698,7 @@ export default function MyAnimationsPanel({ onLoadAnimation, onUploadClick }) {
             onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
           >
-            分享链接
+            {t('shareLink')}
           </button>
         </div>
       )}

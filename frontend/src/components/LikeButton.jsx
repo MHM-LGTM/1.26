@@ -15,11 +15,13 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import useAuthStore from '../store/authStore';
 import { API_BASE_URL } from '../config/api';
 import { showToast } from '../utils/toast.js';
 
 export default function LikeButton({ animationId, initialLikeCount = 0, size = 'medium' }) {
+  const { t } = useTranslation();
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(initialLikeCount);
   const [loading, setLoading] = useState(false);
@@ -64,7 +66,7 @@ export default function LikeButton({ animationId, initialLikeCount = 0, size = '
     e.stopPropagation(); // 阻止事件冒泡
 
     if (!isLoggedIn || !token) {
-      showToast.warning('请先登录后再点赞');
+      showToast.warning(t('pleaseLoginToLike'));
       return;
     }
 
@@ -113,7 +115,7 @@ export default function LikeButton({ animationId, initialLikeCount = 0, size = '
       }
     } catch (error) {
       console.error('点赞操作失败:', error);
-      showToast.error('操作失败，请重试');
+      showToast.error(t('operationFailed'));
     } finally {
       setLoading(false);
     }

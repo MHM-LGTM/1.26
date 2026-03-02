@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import * as Dialog from '@radix-ui/react-dialog';
 import { showToast } from '../utils/toast.js';
 import { API_BASE_URL } from '../config/api';
@@ -21,6 +22,7 @@ export default function FeedbackModal({ isOpen, onClose }) {
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef(null);
+  const { t } = useTranslation();
 
   // 处理图片选择
   const handleImageSelect = (e) => {
@@ -28,18 +30,18 @@ export default function FeedbackModal({ isOpen, onClose }) {
     
     // 限制图片数量
     if (images.length + files.length > 5) {
-      showToast.error('最多只能上传5张图片');
+      showToast.error(t('maxImages'));
       return;
     }
 
     // 验证文件类型和大小
     const validFiles = files.filter(file => {
       if (!file.type.startsWith('image/')) {
-        showToast.error(`${file.name} 不是图片文件`);
+        showToast.error(t('notImageFile', { name: file.name }));
         return false;
       }
       if (file.size > 5 * 1024 * 1024) {
-        showToast.error(`${file.name} 超过5MB限制`);
+        showToast.error(t('imageTooLarge', { name: file.name }));
         return false;
       }
       return true;
@@ -70,19 +72,19 @@ export default function FeedbackModal({ isOpen, onClose }) {
   // 提交反馈
   const handleSubmit = async () => {
     if (!email.trim()) {
-      showToast.error('请输入您的邮箱');
+      showToast.error(t('pleaseEnterEmail'));
       return;
     }
     
     // 验证邮箱格式
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      showToast.error('请输入有效的邮箱地址');
+      showToast.error(t('invalidEmail'));
       return;
     }
 
     if (!description.trim()) {
-      showToast.error('请描述您遇到的问题');
+      showToast.error(t('pleaseDescribeProblem'));
       return;
     }
 
@@ -107,17 +109,17 @@ export default function FeedbackModal({ isOpen, onClose }) {
       const result = await response.json();
       
       if (response.ok && result.code === 200) {
-        showToast.success(result.message || '提交成功');
+        showToast.success(result.message || t('submitSuccess'));
         setEmail('');
         setDescription('');
         setImages([]);
         onClose();
       } else {
-        throw new Error(result.message || '提交失败');
+        throw new Error(result.message || t('submitFailed'));
       }
     } catch (error) {
       console.error('提交反馈失败:', error);
-      showToast.error(error.message || '提交失败，请重试');
+      showToast.error(error.message || t('submitFailedRetry'));
     } finally {
       setLoading(false);
     }
@@ -132,26 +134,24 @@ export default function FeedbackModal({ isOpen, onClose }) {
 
           {/* 标题 */}
           <Dialog.Title className="join-us-title">
-            问题反馈
+            {t('feedbackTitle')}
           </Dialog.Title>
 
           {/* 说明 */}
           <div className="join-us-welcome">
-            <p>感谢您帮助我们改进产品！</p>
-            <p className="feedback-reward">
-              📢 反馈被采纳后，您的账号将获得 <strong>15天会员</strong> 奖励
-            </p>
+            <p>{t('feedbackWelcome')}</p>
+            <p className="feedback-reward" dangerouslySetInnerHTML={{ __html: t('feedbackReward') }} />
           </div>
 
           {/* 反馈表单 */}
           <div className="feedback-form">
             {/* 邮箱 */}
             <div className="form-group">
-              <label className="form-label">联系邮箱 *</label>
+              <label className="form-label">{t('contactEmail')}</label>
               <input
                 type="email"
                 className="feedback-input"
-                placeholder="请输入您的邮箱，以便我们与您联系"
+                placeholder={t('emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -159,10 +159,10 @@ export default function FeedbackModal({ isOpen, onClose }) {
 
             {/* 问题描述 */}
             <div className="form-group">
-              <label className="form-label">问题描述 *</label>
+              <label className="form-label">{t('problemDescription')}</label>
               <textarea
                 className="feedback-textarea"
-                placeholder="请详细描述您遇到的问题，包括：&#10;1. 问题出现的场景&#10;2. 具体的错误表现&#10;3. 您的操作步骤"
+                placeholder={t('problemPlaceholder')}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={6}
@@ -171,8 +171,8 @@ export default function FeedbackModal({ isOpen, onClose }) {
 
             {/* 图片上传 */}
             <div className="form-group">
-              <label className="form-label">上传截图（选填）</label>
-              <p className="form-hint">支持 JPG、PNG、GIF 格式，单张最大 5MB，最多 5 张</p>
+              <label className="form-label">{t('uploadScreenshot')}</label>
+              <p className="form-hint">{t('imageHint')}</p>
               
               <div className="image-upload-area">
                 {/* 已上传的图片预览 */}
@@ -196,7 +196,7 @@ export default function FeedbackModal({ isOpen, onClose }) {
                     onClick={() => fileInputRef.current?.click()}
                   >
                     <div className="upload-icon">📷</div>
-                    <div className="upload-text">点击上传</div>
+                    <div className="upload-text">{t('clickToUpload')}</div>
                   </div>
                 )}
 
@@ -217,7 +217,7 @@ export default function FeedbackModal({ isOpen, onClose }) {
               onClick={handleSubmit}
               disabled={loading}
             >
-              {loading ? '提交中...' : '提交反馈'}
+              {loading ? t('submitting') : t('submitFeedback')}
             </button>
           </div>
 

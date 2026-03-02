@@ -17,8 +17,10 @@ import React, { useState, useEffect } from 'react';
 import useAuthStore from '../store/authStore';
 import { API_BASE_URL, APP_BASE_URL } from '../config/api';
 import { showToast } from '../utils/toast.js';
+import { useTranslation } from 'react-i18next';
 
 export default function ShareLinkModal({ isOpen, onClose, animationId, existingShareCode = null }) {
+  const { t } = useTranslation();
   const [shareUrl, setShareUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -37,14 +39,14 @@ export default function ShareLinkModal({ isOpen, onClose, animationId, existingS
       return;
     }
 
-    // 否则需要生成新的分享链接（需要登录且是自己的动画）
+    // 否则需要调用后端获取分享链接（需要登录）
     if (!isLoggedIn || !token) {
-      showToast.warning('此动画还没有分享链接');
+      showToast.warning(t('pleaseLoginToShare'));
       onClose();
       return;
     }
 
-    const generateLink = async () => {
+    const fetchShareLink = async () => {
       setLoading(true);
       try {
         const response = await fetch(
@@ -64,27 +66,27 @@ export default function ShareLinkModal({ isOpen, onClose, animationId, existingS
         } else {
           // 检查是否是会员限制错误
           if (data.code === 403 && data.data?.is_vip === false) {
-            showToast.error(data.message || '分享链接功能仅对会员开放');
+            showToast.error(data.message || t('shareLinkVipOnly'));
             // 触发打开会员弹窗的事件
             setTimeout(() => {
               window.dispatchEvent(new CustomEvent('open-membership-modal'));
             }, 1500);
           } else {
-            showToast.error(`生成失败：${data.message}`);
+            showToast.error(t('loadFailed', { message: data.message }));
           }
           onClose();
         }
       } catch (error) {
-        console.error('生成分享链接失败:', error);
-        showToast.error(`生成失败：${error.message}`);
+        console.error('获取分享链接失败:', error);
+        showToast.error(t('loadFailed', { message: error.message }));
         onClose();
       } finally {
         setLoading(false);
       }
     };
 
-    generateLink();
-  }, [isOpen, animationId, token, existingShareCode, isLoggedIn]);
+    fetchShareLink();
+  }, [isOpen, animationId, token, existingShareCode, isLoggedIn, onClose]);
 
   // 复制链接
   const handleCopy = async () => {
@@ -171,12 +173,12 @@ export default function ShareLinkModal({ isOpen, onClose, animationId, existingS
           fontWeight: 600,
           color: '#222'
         }}>
-          🔗 分享链接
+          {t('shareLinkTitle')}
         </h3>
 
         {loading ? (
           <p style={{ textAlign: 'center', color: '#6b7280', padding: '20px 0' }}>
-            生成链接中...
+            {t('gettingLink')}
           </p>
         ) : (
           <>
@@ -221,7 +223,7 @@ export default function ShareLinkModal({ isOpen, onClose, animationId, existingS
                 }
               }}
             >
-              {copied ? '✅ 已复制' : '📋 复制链接'}
+              {copied ? t('copied') : t('copyLink')}
             </button>
 
             {/* 说明文字 */}
@@ -232,7 +234,7 @@ export default function ShareLinkModal({ isOpen, onClose, animationId, existingS
               lineHeight: 1.6,
               textAlign: 'center'
             }}>
-              分享给朋友，他们可以直接打开链接运行动画
+              {t('shareLinkHint')}
             </p>
           </>
         )}

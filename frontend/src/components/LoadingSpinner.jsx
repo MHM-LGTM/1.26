@@ -6,7 +6,9 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
-export default function LoadingSpinner({ text = '加载中...' }) {
-  return <div style={{ color: '#555' }}>{text}</div>;
+export default function LoadingSpinner({ text }) {
+  const { t } = useTranslation();
+  return <div style={{ color: '#555' }}>{text || t('loading')}</div>;
 }

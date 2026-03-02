@@ -42,9 +42,13 @@ export async function health() {
   return res.data;
 }
 
-export async function uploadImage(file) {
+export async function uploadImage(file, uploadId) {
   const form = new FormData();
   form.append('file', file);
+  // 【2026-02-14 新增】传递 uploadId 用于请求追踪，解决竞态条件问题
+  if (uploadId) {
+    form.append('upload_id', uploadId);
+  }
   // 不手动设置 Content-Type，浏览器会自动带上正确的 boundary
   // 首次同步预热 embedding 在 CPU 上可能较慢，提高该请求的超时阈值
   const res = await client.post('/physics/upload', form, {

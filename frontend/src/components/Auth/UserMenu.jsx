@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import useAuthStore from '../../store/authStore.js';
 import { showToast } from '../../utils/toast.js';
 import { getMembershipStatus } from '../../api/membershipApi.js';
@@ -21,6 +22,7 @@ export default function UserMenu() {
   const [showMembershipModal, setShowMembershipModal] = useState(false);
   const menuRef = useRef(null);
   const { user, logout, membership, updateMembership } = useAuthStore();
+  const { t } = useTranslation();
 
   // 加载会员信息
   useEffect(() => {
@@ -85,7 +87,7 @@ export default function UserMenu() {
 
   const handleLogoutConfirm = () => {
     logout();
-    showToast.success('已退出登录');
+    showToast.success(t('loggedOut'));
     setShowConfirmLogout(false);
   };
 
@@ -172,16 +174,16 @@ export default function UserMenu() {
               {isVip ? (
                 <div style={{ fontSize: '13px' }}>
                   <div style={{ color: '#ff9800', fontWeight: '500' }}>
-                    ⭐ 会员用户
+                    {t('vipMember')}
                   </div>
                   <div style={{ color: '#6b7280', fontSize: '12px', marginTop: '4px' }}>
-                    {membership.vip_expires_at ? `到期：${membership.vip_expires_at}` : '永久会员'}
+                    {membership.vip_expires_at ? t('expiresAt', { date: membership.vip_expires_at }) : t('permanentVip')}
                   </div>
                 </div>
               ) : (
                 <div style={{ fontSize: '13px' }}>
                   <div style={{ color: '#6b7280' }}>
-                    今日剩余次数: <span style={{ color: '#ff9800', fontWeight: '500' }}>{remaining}/5</span>
+                    {t('todayRemaining')} <span style={{ color: '#ff9800', fontWeight: '500' }}>{remaining}/5</span>
                   </div>
                   <div 
                     onClick={handleMembershipClick}
@@ -193,7 +195,7 @@ export default function UserMenu() {
                       textDecoration: 'underline'
                     }}
                   >
-                    开通会员享无限次数
+                    {t('unlimitedVip')}
                   </div>
                 </div>
               )}
@@ -215,7 +217,7 @@ export default function UserMenu() {
                   strokeLinejoin="round"
                 />
               </svg>
-              退出登录
+              {t('logoutBtn')}
             </div>
           </div>
         )}
@@ -224,10 +226,10 @@ export default function UserMenu() {
       {/* 确认退出登录对话框 */}
       <ConfirmDialog
         isOpen={showConfirmLogout}
-        title="退出登录"
-        message="确定要退出登录吗？"
-        confirmText="退出"
-        cancelText="取消"
+        title={t('confirmLogout')}
+        message={t('confirmLogoutMessage')}
+        confirmText={t('logoutConfirm')}
+        cancelText={t('cancel')}
         confirmStyle="danger"
         onConfirm={handleLogoutConfirm}
         onCancel={() => setShowConfirmLogout(false)}

@@ -91,6 +91,29 @@ body > * {
   gap: 12px;
 }
 
+.lang-switcher-btn {
+  background: linear-gradient(135deg, #ffffff 0%, #fffef8 100%);
+  color: #222;
+  border: 1px solid #000000;
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.5px;
+}
+
+.lang-switcher-btn:hover {
+  background: linear-gradient(135deg, #fff8e1 0%, #ffeaa7 100%);
+  box-shadow: 0 4px 12px rgba(255, 152, 0, 0.2);
+  transform: translateY(-1px);
+}
+
+.lang-switcher-btn:active {
+  transform: scale(0.98);
+}
+
 .auth-hint {
   color: var(--text-muted);
 }

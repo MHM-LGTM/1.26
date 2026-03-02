@@ -29,8 +29,8 @@
 - 在 `/upload` 增加题目文本，以提升参数推断准确性。
 """
 
-from fastapi import APIRouter, UploadFile, File, Depends
-from typing import Dict, List
+from fastapi import APIRouter, UploadFile, File, Depends, Form
+from typing import Dict, List, Optional
 from uuid import uuid4
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
@@ -204,7 +204,11 @@ def _normalize_elements(full: Dict[str, object] | None) -> List[Dict[str, object
 
 
 @router.post("/upload", response_model=ApiResponse)
-async def upload_image(file: UploadFile = File(...), current_user = Depends(get_current_user)):
+async def upload_image(
+    file: UploadFile = File(...), 
+    upload_id: Optional[str] = Form(None),
+    current_user = Depends(get_current_user)
+):
     """保存物理模拟图片，预热 embedding 并调用豆包分析，返回元素与耗时。
     
     **需要登录才能使用此功能**
@@ -214,6 +218,10 @@ async def upload_image(file: UploadFile = File(...), current_user = Depends(get_
     - 第6个及之后的用户会自动排队等待
     - 处理完成后自动释放资源，让排队的下一个用户进入
 
+    请求参数：
+    - `file`: 上传的图片文件（必填）
+    - `upload_id`: 前端生成的唯一ID，用于追踪请求，解决竞态条件（可选，2026-02-14新增）
+
     返回字段说明：
     - `path`: 图片在后端的保存路径（字符串）。
     - `embed_ms`: 预热 embedding 的耗时（毫秒）。
@@ -222,13 +230,19 @@ async def upload_image(file: UploadFile = File(...), current_user = Depends(get_
     - `wait_ms`: 排队等待的耗时（毫秒），如果无需等待则为 0。
     - `elements`: 模型识别到的元素名称数组（已做简化）。
     - `doubao_error`: 当调用异常时附带错误信息，方便前端直观展示问题来源。
+    - `upload_id`: 透传前端传入的 upload_id，用于请求追踪（2026-02-14新增）
     """
     import time
     request_start = time.perf_counter()
     
+    # ========================================================================
+    # 【2026-02-14 新增】记录 upload_id，用于请求追踪
+    # ========================================================================
+    log.info(f"[上传] 收到请求, upload_id={upload_id}, 文件名={file.filename}")
+    
     # 保存图片
     save_path, _ = await save_upload_file(file, "physics")
-    log.info(f"[上传] 图片已保存: {save_path}")
+    log.info(f"[上传] 图片已保存: {save_path}, upload_id={upload_id}")
     
     # 检查当前排队情况
     available_slots = _upload_semaphore._value
@@ -292,7 +306,7 @@ async def upload_image(file: UploadFile = File(...), current_user = Depends(get_
     }
     doubao_error = ai_result.get("error") or None
     
-    log.info(f"[响应返回] 路径={save_path}, 总耗时={total_ms}ms (其中等待={wait_ms}ms), 元素数={len(elements)}")
+    log.info(f"[响应返回] 路径={save_path}, upload_id={upload_id}, 总耗时={total_ms}ms (其中等待={wait_ms}ms), 元素数={len(elements)}")
 
     return ApiResponse.ok({
         "path": str(save_path),
@@ -304,6 +318,7 @@ async def upload_image(file: UploadFile = File(...), current_user = Depends(get_
         "elements_detailed": elements_detailed,
         "analysis": analysis,
         "doubao_error": doubao_error,
+        "upload_id": upload_id,  # 【2026-02-14 新增】透传 upload_id，用于前端请求追踪
     })
 
 

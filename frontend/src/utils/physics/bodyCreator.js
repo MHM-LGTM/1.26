@@ -32,8 +32,10 @@ import { toConvexHull } from './geometry.js';
  * @param {Object} Composite - Matter.Composite 模块
  * @param {Object} engine - Matter.Engine 实例
  * @param {Object} bodiesMap - 物体名称到刚体的映射表
+ * @param {Function} initBodyTrail - 初始化运动轨迹的回调函数（可选）
+ * @param {Function} initCustomPath - 初始化自定义路径的回调函数（可选）
  */
-export function createConvexHullBody(processed, obj, isStatic, friction, air, restitution, sx, sy, Bodies, Vertices, Body, Composite, engine, bodiesMap) {
+export function createConvexHullBody(processed, obj, isStatic, friction, air, restitution, sx, sy, Bodies, Vertices, Body, Composite, engine, bodiesMap, initBodyTrail, initCustomPath) {
   // 生成凸包顶点
   const hullPoints = toConvexHull(processed);
   const hullVerts = Vertices.create(hullPoints, Matter);
@@ -58,6 +60,16 @@ export function createConvexHullBody(processed, obj, isStatic, friction, air, re
     // 添加到映射表（用于约束创建）
     const bodyName = obj.name || `body-${Object.keys(bodiesMap).length}`;
     bodiesMap[bodyName] = body;
+    
+    // 初始化运动轨迹（仅对动态物体）
+    if (!isStatic && initBodyTrail && typeof initBodyTrail === 'function') {
+      initBodyTrail(body, obj.parameters || {});
+    }
+    
+    // 初始化自定义路径（仅对动态物体）
+    if (!isStatic && initCustomPath && typeof initCustomPath === 'function') {
+      initCustomPath(body, obj.parameters || {});
+    }
   }
 }
 

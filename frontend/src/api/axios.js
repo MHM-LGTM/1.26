@@ -13,6 +13,7 @@
 import axios from 'axios';
 import useAuthStore from '../store/authStore.js';
 import { API_BASE_URL } from '../config/api.js';
+import i18n from '../i18n.js';
 
 const instance = axios.create({
   baseURL: API_BASE_URL,
@@ -40,7 +41,7 @@ instance.interceptors.response.use(
       useAuthStore.getState().logout();
       // 显示友好提示（使用 toast 而不是 console）
       import('react-hot-toast').then(({ default: toast }) => {
-        toast.error('登录已过期，请重新登录');
+        toast.error(i18n.t('loginExpired'));
       });
     }
     return Promise.reject(error);

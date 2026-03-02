@@ -343,6 +343,9 @@ async def publish_to_plaza(
     
     返回：
     - message: 成功消息
+    
+    2026-02-14 更新：
+    - 发布到广场时自动生成分享码，方便任何会员用户获取分享链接
     """
     try:
         # 查询动画
@@ -360,6 +363,19 @@ async def publish_to_plaza(
         # 设置为公开
         animation.is_public = True
         animation.show_author = show_author
+        
+        # 【2026-02-14 新增】如果还没有分享码，自动生成
+        if not animation.share_code:
+            while True:
+                share_code = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
+                # 检查是否重复
+                check_stmt = select(Animation).where(Animation.share_code == share_code)
+                check_result = await db.execute(check_stmt)
+                if not check_result.scalar_one_or_none():
+                    break
+            
+            animation.share_code = share_code
+            log.info(f"为动画 {animation_id} 自动生成分享码：{share_code}")
         
         await db.commit()
         
@@ -771,7 +787,7 @@ async def generate_share_link(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    生成分享链接
+    获取动画分享链接
     
     参数：
     - animation_id: 动画ID
@@ -781,8 +797,13 @@ async def generate_share_link(
     - share_url: 完整分享链接
     
     会员限制：
-    - 非会员不能生成分享链接
-    - 会员可以正常使用
+    - 非会员不能获取分享链接
+    - 会员可以获取任何公开动画的分享链接
+    
+    2026-02-14 更新：
+    - 改为"获取分享链接"而非"生成分享链接"
+    - 任何会员都可以获取公开动画的分享链接（不限于创作者）
+    - 分享码在动画发布到广场时自动生成
     """
     try:
         # 检查会员状态
@@ -793,17 +814,17 @@ async def generate_share_link(
                 {"is_vip": False, "feature": "share_link"}
             )
         
-        # 查询动画（必须是自己的）
-        stmt = select(Animation).where(
-            Animation.id == animation_id,
-            Animation.user_id == current_user.id
-        )
-        
+        # 查询动画（必须是公开的或者是自己的）
+        stmt = select(Animation).where(Animation.id == animation_id)
         result = await db.execute(stmt)
         animation = result.scalar_one_or_none()
         
         if not animation:
-            return ApiResponse.error("动画不存在或无权操作", 404)
+            return ApiResponse.error("动画不存在", 404)
+        
+        # 检查权限：必须是公开动画，或者是自己创建的动画
+        if not animation.is_public and animation.user_id != current_user.id:
+            return ApiResponse.error("无法获取未公开动画的分享链接", 403)
         
         # 如果已有分享码，直接返回
         if animation.share_code:
@@ -813,7 +834,7 @@ async def generate_share_link(
                 "share_url": share_url
             })
         
-        # 生成唯一的6位分享码
+        # 如果没有分享码，生成一个新的（兼容旧数据）
         while True:
             share_code = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
             # 检查是否重复
@@ -828,7 +849,7 @@ async def generate_share_link(
         
         share_url = f"{FRONTEND_BASE_URL}/physics/play/{share_code}"
         
-        log.info(f"用户 {current_user.id} 生成分享链接：{animation_id} -> {share_code}")
+        log.info(f"用户 {current_user.id} 获取动画 {animation_id} 的分享链接：{share_code}")
         
         return ApiResponse.ok({
             "share_code": share_code,
@@ -839,8 +860,8 @@ async def generate_share_link(
         raise
     except Exception as e:
         await db.rollback()
-        log.error(f"生成分享链接失败：{e}")
-        raise HTTPException(status_code=500, detail=f"生成失败：{str(e)}")
+        log.error(f"获取分享链接失败：{e}")
+        raise HTTPException(status_code=500, detail=f"获取失败：{str(e)}")
 
 
 @router.get("/play/{share_code}", response_model=ApiResponse)

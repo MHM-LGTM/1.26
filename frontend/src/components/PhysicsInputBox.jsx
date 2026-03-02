@@ -66,8 +66,10 @@ import {
   getElementSecondPivotPrompt
 } from './physics/elementTypes.js';
 import { showToast } from '../utils/toast.js';
+import { useTranslation } from 'react-i18next';
 
 const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClosePlazaInfo, onClearPlazaSelection }, ref) => {
+  const { t } = useTranslation();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -99,6 +101,10 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
   
   // 2026-01-28 新增：交互模式状态
   const [isInteractiveModeActive, setIsInteractiveModeActive] = useState(false);
+  
+  // 2026-02-15 新增：自定义路径编辑模式
+  const [isPathEditMode, setIsPathEditMode] = useState(false);
+  const [pathEditObjectIndex, setPathEditObjectIndex] = useState(null);
 
   // 弹窗拖拽相关状态
   const [popupOffset, setPopupOffset] = useState({ x: 0, y: 0 }); // 弹窗的手动偏移量
@@ -183,6 +189,77 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
     console.log('[PhysicsInputBox] 参数已更新，点击重置后生效');
   };
   
+  // ============================================================================
+  // 【2026-02-15 新增】自定义路径编辑功能
+  // ============================================================================
+  
+  // 启用路径编辑模式
+  const enablePathEdit = (objectIndex) => {
+    if (!assignments[objectIndex]) {
+      console.warn('[路径编辑] 物体不存在:', objectIndex);
+      return;
+    }
+    
+    const obj = assignments[objectIndex];
+    if (!obj.parameters?.custom_path_enabled) {
+      showToast(t('pleaseEnableCustomPath'), 'warning');
+      return;
+    }
+    
+    // 如果模拟正在运行，需要先停止
+    if (isSimulationRunning) {
+      showToast(t('pleaseResetFirst'), 'warning');
+      return;
+    }
+    
+    setIsPathEditMode(true);
+    setPathEditObjectIndex(objectIndex);
+    setInteractionMode('edit_path'); // 新增交互模式
+    
+    // 初始化路径点数组（如果不存在）
+    if (!obj.parameters.custom_path_points) {
+      handleParametersChange(objectIndex, { custom_path_points: [] });
+    }
+    
+    showToast(t('pathEditEnabled', { name: obj.label || obj.name }), 'success');
+    console.log('[路径编辑] 启用路径编辑模式，物体索引:', objectIndex);
+  };
+  
+  // 禁用路径编辑模式
+  const disablePathEdit = () => {
+    setIsPathEditMode(false);
+    setPathEditObjectIndex(null);
+    setInteractionMode('segment');
+    console.log('[路径编辑] 禁用路径编辑模式');
+  };
+  
+  // 清除路径点
+  const clearPathPoints = () => {
+    if (pathEditObjectIndex === null) return;
+    
+    handleParametersChange(pathEditObjectIndex, { custom_path_points: [] });
+    showToast(t('pathPointsCleared'), 'info');
+    console.log('[路径编辑] 路径点已清除');
+  };
+  
+  // 暴露enablePathEdit给全局（供参数面板调用）
+  useEffect(() => {
+    window.enablePathEdit = enablePathEdit;
+    return () => {
+      delete window.enablePathEdit;
+    };
+  }, [assignments, isSimulationRunning]); // 依赖这些状态
+
+  // 暴露setPathVisualsVisible给全局（供参数面板调用）
+  useEffect(() => {
+    window.setPathVisualsVisible = (visible) => {
+      runningSimulation.current?.setPathVisualsVisible(visible);
+    };
+    return () => {
+      delete window.setPathVisualsVisible;
+    };
+  }, []);
+  
   // 处理全局参数变化（时间缩放等）
   const handleGlobalParametersChange = (newGlobalParams) => {
     console.log('[PhysicsInputBox] 全局参数变化:', newGlobalParams);
@@ -205,6 +282,11 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
   const simRef = useRef(null);
   const simulationCache = useRef(null); // 缓存模拟结果（避免重复OpenCV处理）
   const runningSimulation = useRef(null); // 当前运行的模拟实例（用于停止和清理）
+  
+  // ============================================================================
+  // 【2026-02-14 新增】使用 ref 存储当前有效的 uploadId（避免 state 更新延迟问题）
+  // ============================================================================
+  const currentUploadIdRef = useRef(null);
 
   // 框选拖拽状态
   const [dragging, setDragging] = useState(false);
@@ -218,7 +300,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
       
       if (!sceneData) {
         console.error('[PhysicsInputBox] sceneData 为空');
-        showToast.error('加载失败：动画数据为空');
+        showToast.error(t('loadFailed', { message: '' }));
         return;
       }
 
@@ -328,7 +410,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         // 注意：刚体创建逻辑已移至 handleImageLoad 中，在图片加载完成后自动触发
       } catch (error) {
         console.error('[PhysicsInputBox] 加载动画失败:', error);
-        showToast.error(`加载失败：${error.message}`);
+        showToast.error(t('loadFailed', { message: error.message }));
       }
     }
   }));
@@ -395,9 +477,17 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
     // ========================================================================
     const { isLoggedIn } = useAuthStore.getState();
     if (!isLoggedIn) {
-      showToast.warning('请先登录后再上传图片，未登录用户可以浏览和调试动画广场的动画');
+      showToast.warning(t('pleaseLoginToUpload'));
       return;
     }
+    
+    // ========================================================================
+    // 【2026-02-14 核心改动】生成唯一的上传ID，用于过滤过期响应
+    // 使用 ref 而不是 state，避免异步更新导致的比较错误
+    // ========================================================================
+    const uploadId = `upload_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    currentUploadIdRef.current = uploadId;
+    console.log('[PhysicsInputBox] 开始上传，uploadId:', uploadId);
     
     setError('');
     setLoading(true);
@@ -412,8 +502,23 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
       };
       reader.readAsDataURL(file);
 
-      const resp = await uploadImage(file);
+      const resp = await uploadImage(file, uploadId);
       const data = resp?.data || {};
+      
+      // ========================================================================
+      // 【2026-02-14 核心检查】验证响应是否对应当前上传
+      // 直接用 ref 比较，确保实时性（避免 state 更新延迟）
+      // ========================================================================
+      const responseUploadId = data?.upload_id;
+      if (responseUploadId !== currentUploadIdRef.current) {
+        console.log('[PhysicsInputBox] 收到过期的上传响应，已忽略', {
+          response: responseUploadId,
+          current: currentUploadIdRef.current
+        });
+        return; // 静默丢弃过期响应
+      }
+      
+      console.log('[PhysicsInputBox] 上传响应有效，开始处理', uploadId);
       setImagePath(data?.path || '');
       setEmbedMs(typeof data?.embed_ms === 'number' ? data.embed_ms : null);
       setAiMs(typeof data?.ai_ms === 'number' ? data.ai_ms : null);
@@ -439,9 +544,9 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
     } catch (e) {
       // 处理 401 未授权错误
       if (e?.response?.status === 401) {
-        showToast.error('登录已过期，请重新登录');
+        showToast.error(t('loginExpired'));
       } else {
-        setError(e?.response?.data?.message || e?.message || '图片上传失败');
+        setError(e?.response?.data?.message || e?.message || t('uploadFailed'));
       }
     } finally {
       setLoading(false);
@@ -489,7 +594,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
     // ========================================================================
     const { isLoggedIn } = useAuthStore.getState();
     if (!isLoggedIn) {
-      showToast.warning('请先登录后再上传图片，未登录用户可以浏览和调试动画广场的动画');
+      showToast.warning(t('pleaseLoginToUpload'));
       return;
     }
     
@@ -503,7 +608,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
     // ========================================================================
     const { isLoggedIn } = useAuthStore.getState();
     if (!isLoggedIn) {
-      showToast.warning('请先登录后再上传图片，未登录用户可以浏览和调试动画广场的动画');
+      showToast.warning(t('pleaseLoginToUpload'));
       return;
     }
     
@@ -517,7 +622,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
   const handleMouseDown = (ev) => {
     if (!canvasRef.current) return;
     if (!imagePath) {
-      setError('请先上传图片再进行点选/框选');
+      setError(t('pleaseUploadFirst'));
       return;
     }
 
@@ -535,9 +640,10 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
     // ========================================================================
     if (interactionMode === 'select_pivot' ||
         interactionMode === 'select_first_endpoint' ||
-        interactionMode === 'select_second_endpoint') {
-      // 端点选择模式：不启动拖拽，直接在 mouseUp 时处理点击
-      // 这里不做任何操作，让 mouseUp 来处理端点选择
+        interactionMode === 'select_second_endpoint' ||
+        interactionMode === 'edit_path') {
+      // 端点选择模式或路径编辑模式：不启动拖拽，直接在 mouseUp 时处理点击
+      // 这里不做任何操作，让 mouseUp 来处理端点选择或路径点添加
       return;
     }
 
@@ -644,7 +750,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         firstPoint: {
           x: pivotPointImage.x,
           y: pivotPointImage.y,
-          bodyName: pivotName || '临时锚点',
+          bodyName: pivotName || t('tempAnchor'),
           bodyElement: pivotElement
         }
       }));
@@ -671,7 +777,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
       const newConstraint = {
         bodyName: bodyName,
         bodyContour: bodyContour,
-        pivotName: pivotName || '临时锚点',
+        pivotName: pivotName || t('tempAnchor'),
         pivotPoint: pivotPointImage,
         element_type: element.element_type, // 添加元素类型字段
         constraintType: element.constraints?.constraint_type || 'pendulum',
@@ -750,7 +856,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
       bodyContour: bodyContour,
       pivotName: firstPoint.bodyName,
       pivotPoint: { x: firstPoint.x, y: firstPoint.y },
-      secondPivotName: secondPivotName || '临时锚点',
+      secondPivotName: secondPivotName || t('tempAnchor'),
       secondPivotPoint: secondPivotPointImage,
       element_type: element.element_type, // 关键：传递元素类型
       constraintType: isRope ? 'rope' : 'spring',
@@ -828,6 +934,75 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
       handleSecondPivotSelection({ x, y }, imgRect);
       return;
     }
+    
+    // ========================================================================
+    // 【2026-02-15 新增】路径编辑模式：添加路径点
+    // ========================================================================
+    if (interactionMode === 'edit_path' && isPathEditMode && pathEditObjectIndex !== null) {
+      const obj = assignments[pathEditObjectIndex];
+      if (!obj) return;
+      
+      // 转换为原图坐标（保存原图坐标，因为参数需要持久化）
+      const scaleX = imageNaturalSize.w / imgRect.width;
+      const scaleY = imageNaturalSize.h / imgRect.height;
+      const originalX = Math.round(x * scaleX);
+      const originalY = Math.round(y * scaleY);
+      
+      // 保存原图坐标
+      const newPoint = { x: originalX, y: originalY };
+      const currentPoints = obj.parameters?.custom_path_points || [];
+      const updatedPoints = [...currentPoints, newPoint];
+      
+      // 更新参数
+      handleParametersChange(pathEditObjectIndex, { 
+        custom_path_points: updatedPoints 
+      });
+      
+      // 在画布上绘制新点（使用画布坐标x, y）
+      const ctx = canvasRef.current.getContext('2d');
+      const isStart = updatedPoints.length === 1;
+      const color = isStart ? '#ef4444' : '#10b981';
+      
+      // 绘制外圈
+      ctx.beginPath();
+      ctx.arc(x, y, 6, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      
+      // 绘制内圈
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+      ctx.fill();
+      
+      // 绘制序号
+      ctx.font = 'bold 10px Arial';
+      ctx.fillStyle = '#000000';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(updatedPoints.length, x, y);
+      
+      // 绘制连线（如果有前一个点）
+      if (updatedPoints.length > 1) {
+        const prevPointOriginal = updatedPoints[updatedPoints.length - 2];
+        // 将前一个点的原图坐标转换为画布坐标
+        const prevX = Math.round(prevPointOriginal.x / scaleX);
+        const prevY = Math.round(prevPointOriginal.y / scaleY);
+        
+        ctx.beginPath();
+        ctx.moveTo(prevX, prevY);
+        ctx.lineTo(x, y);
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.6)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      
+      console.log(`[路径编辑] 添加路径点 #${updatedPoints.length}: 原图坐标(${originalX}, ${originalY}), 画布坐标(${x}, ${y})`);
+      setDragging(false);
+      return;
+    }
 
     // ========================================================================
     // 【2026-01-21 新增】检查分割功能是否已禁用
@@ -889,11 +1064,11 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
       clear(ctx, width, height);
       drawContour(ctx, pts);
       if (!pts || pts.length === 0) {
-        setError('未分割到轮廓，请调整框选或改用点选');
+        setError(t('noSegmentContour'));
       }
     } catch (e) {
       console.error('segment error', e);
-      setError(`分割失败：${e?.message || '请重试'}`);
+      setError(t('segmentFailed', { message: e?.message || '' }));
     } finally {
       setLoading(false);
     }
@@ -1037,6 +1212,12 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
   const handleClearCanvas = () => {
     console.log('[PhysicsInputBox] 用户点击清空画布');
     
+    // ========================================================================
+    // 【2026-02-14 核心改动】清空 uploadId，使后续返回的过期响应失效
+    // ========================================================================
+    currentUploadIdRef.current = null;
+    console.log('[PhysicsInputBox] 已清空 currentUploadId，后续返回的上传响应将被忽略');
+    
     // 停止正在运行的模拟
     if (runningSimulation.current) {
       runningSimulation.current.stop();
@@ -1092,7 +1273,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
     }
     
     console.log('[PhysicsInputBox] 画布已清空，恢复到初始状态');
-    showToast.success('画布已清空');
+    showToast.success(t('canvasCleared'));
   };
 
   // 阶段三新增：处理下载/Fork 按钮点击
@@ -1101,7 +1282,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
     const isLoggedIn = useAuthStore.getState().isLoggedIn;
 
     if (!isLoggedIn || !token) {
-      showToast.warning('请先登录后再保存动画');
+      showToast.warning(t('pleaseLoginToSave'));
       return;
     }
 
@@ -1122,20 +1303,77 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         const data = await response.json();
         
         if (data.code === 0) {
-          showToast.success('保存成功');
+          showToast.success(t('savingSuccess'));
           // 清除广场动画标记
           setCurrentPlazaAnimationId(null);
         } else {
-          showToast.error(`保存失败：${data.message}`);
+          showToast.error(t('saveFailed', { message: data.message }));
         }
       } catch (error) {
         console.error('Fork 动画失败:', error);
-        showToast.error(`保存失败：${error.message}`);
+        showToast.error(t('saveFailed', { message: error.message }));
       }
     } else {
       // 保存/更新我的动画
       setShowSaveModal(true);
     }
+  };
+
+  // ============================================================================
+  // 模拟恢复辅助函数（2026-03-02 重构）
+  // 目标：统一“缓存恢复对象 + 创建冻结预览”逻辑，提升可维护性
+  // ============================================================================
+  const buildObjectsFromCachedData = (cachedData) => {
+    const serverObjects = cachedData?.objects || [];
+    const elementsSimple = assignments.map((a) => a.label);
+    const roles = assignments.map((a) => a.role);
+    const parametersList = assignments.map((a) => a.parameters || {});
+    const isConcaveList = assignments.map((a) => a.is_concave || false);
+
+    return serverObjects.map((o, idx) => ({
+      name: elementsSimple[idx] || o?.name || `elem-${idx}`,
+      role: o?.role ?? roles[idx] ?? 'unknown',
+      parameters: parametersList[idx] || {}, // 使用 assignments 中的最新参数
+      contour: (o?.contour || assignments[idx]?.contour || []),
+      sprite_data_url: o?.sprite_data_url || null,
+      is_concave: isConcaveList[idx] || false,
+    }));
+  };
+
+  const createFrozenPreviewSimulation = (objects, previewImageUrl) => {
+    if (!imgRef.current || !simRef.current || !Array.isArray(objects) || objects.length === 0) {
+      return false;
+    }
+
+    if (runningSimulation.current) {
+      runningSimulation.current.stop();
+      runningSimulation.current = null;
+    }
+
+    // 重置后进入“完整视觉预览态”：残缺背景 + 原位置精灵刚体（冻结）
+    if (previewImageUrl) {
+      setImagePreview(previewImageUrl);
+    }
+
+    // 清除 SAM 画布，避免路径编辑标记残留
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    }
+
+    const sim = runSimulation({
+      container: simRef.current,
+      objects,
+      constraints: constraintRelations,
+      imageRect: imgRef.current.getBoundingClientRect(),
+      naturalSize: imageNaturalSize,
+      frozen: true,
+      timeScale: globalParameters.timeScale,
+      initialShowPathVisuals: window.currentPathVisualsVisible !== undefined ? window.currentPathVisualsVisible : true
+    });
+
+    runningSimulation.current = sim;
+    return true;
   };
 
   const handleStartSimulate = async () => {
@@ -1151,62 +1389,31 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
       
       // 1. 停止当前运行的模拟
       if (runningSimulation.current) {
+        // 清空轨迹数据
+        if (runningSimulation.current.clearTrails) {
+          runningSimulation.current.clearTrails();
+        }
         runningSimulation.current.stop();
         runningSimulation.current = null;
       }
       
-      // 2. 重新创建冻结的刚体
-      // ========================================================================
-      // 【2026-01-28 更新】支持参数动态调整
-      // 使用缓存的精灵图（视觉不变）+ 最新的参数（assignments）
-      // ========================================================================
+      // 2. 恢复背景图（如果有缓存）
       if (simulationCache.current && simulationCache.current.data) {
         const cachedData = simulationCache.current.data;
-        const serverObjects = cachedData.objects || [];
-        const elements_simple = assignments.map((a) => a.label);
-        const roles = assignments.map((a) => a.role);
-        const parameters_list = assignments.map((a) => a.parameters || {});
-        const is_concave_list = assignments.map((a) => a.is_concave || false);
-        
-        // ======================================================================
-        // 【关键】合并缓存的精灵图数据 + assignments 中的最新参数
-        // 这样参数调整不需要重新调用后端，只需要重新创建物理刚体
-        // ======================================================================
-        const objects = serverObjects.map((o, idx) => ({
-          name: elements_simple[idx] || o?.name || `elem-${idx}`,
-          role: o?.role ?? roles[idx] ?? 'unknown',
-          parameters: parameters_list[idx] || {},  // 使用 assignments 中的最新参数
-          contour: (o?.contour || assignments[idx].contour || []),
-          sprite_data_url: o?.sprite_data_url || null,
-          is_concave: is_concave_list[idx] || false,
-        }));
-        
-        // 恢复残缺背景图
-        if (cachedData.background_clean_data_url) {
-          setImagePreview(cachedData.background_clean_data_url);
+        const previewObjects = buildObjectsFromCachedData(cachedData);
+        const previewImageUrl = cachedData.background_clean_data_url || imagePreview;
+
+        const restored = createFrozenPreviewSimulation(previewObjects, previewImageUrl);
+        if (!restored && previewImageUrl) {
+          // 回退策略：若当前无法建模，至少先恢复背景图
+          setImagePreview(previewImageUrl);
         }
-        
-        // 创建冻结的模拟
-        setTimeout(() => {
-          if (imgRef.current && simRef.current) {
-            const sim = runSimulation({
-              container: simRef.current,
-              objects,
-              constraints: constraintRelations,
-              imageRect: imgRef.current.getBoundingClientRect(),
-              naturalSize: imageNaturalSize,
-              frozen: true,  // 冻结状态
-              timeScale: globalParameters.timeScale
-            });
-            runningSimulation.current = sim;
-            console.log('[PhysicsInputBox] 已重置到初始冻结状态（应用最新参数）');
-          }
-        }, 50);
       }
       
-      // 3. 更新状态
+      // 3. 更新状态（保持“未运行”，按钮显示“开始模拟”）
       setIsSimulationRunning(false);
       setIsInteractiveModeActive(false);  // 重置时退出交互模式
+      console.log('[PhysicsInputBox] 已重置并恢复冻结预览态，等待用户点击"开始模拟"按钮');
       return;
     }
     
@@ -1217,16 +1424,21 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
     setLoading(true);
     setError('');
     try {
-      if (!imagePath) throw new Error('请先上传图片并完成元素选择');
-      if (!assignments || assignments.length === 0) throw new Error('请至少选择一个元素');
+      if (!imagePath) throw new Error(t('pleaseUploadAndSelect'));
+      if (!assignments || assignments.length === 0) throw new Error(t('pleaseSelectAtLeastOne'));
 
       // 检查是否有未完成的支点选择
       if (interactionMode === 'select_pivot' && pendingPivotSelection) {
-        throw new Error(`请先完成 "${pendingPivotSelection.element.label}" 的支点选择`);
+        throw new Error(t('pleaseFinishPivot', { name: pendingPivotSelection.element.label }));
+      }
+      
+      // 检查是否处于路径编辑模式
+      if (interactionMode === 'edit_path' && isPathEditMode) {
+        throw new Error(t('pleaseFinishPathEdit'));
       }
 
       // ────────────────────────────────────────────────────────────────────
-      // 子情况1：已有冻结的刚体（从动画加载或重置后）→ 直接解冻
+      // 子情况1：已有冻结的刚体（从动画加载后）→ 直接解冻
       // ────────────────────────────────────────────────────────────────────
       if (runningSimulation.current && runningSimulation.current.unfreeze) {
         console.log('[PhysicsInputBox] 检测到冻结的刚体，直接激活物理效果');
@@ -1234,6 +1446,31 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         setIsSimulationRunning(true);
         setLoading(false);
         return;
+      }
+      
+      // ────────────────────────────────────────────────────────────────────
+      // 子情况1.5：重置后重新开始（使用缓存数据创建冻结刚体）
+      // ────────────────────────────────────────────────────────────────────
+      if (simulationCache.current && simulationCache.current.data && assignments.length > 0) {
+        console.log('[PhysicsInputBox] 使用缓存数据重新创建模拟');
+        const cachedData = simulationCache.current.data;
+        const objectsFromCache = buildObjectsFromCachedData(cachedData);
+        const created = createFrozenPreviewSimulation(
+          objectsFromCache,
+          cachedData.background_clean_data_url
+        );
+
+        if (created && runningSimulation.current?.unfreeze) {
+          setTimeout(() => {
+            if (runningSimulation.current && runningSimulation.current.unfreeze) {
+              runningSimulation.current.unfreeze();
+              setIsSimulationRunning(true);
+              setLoading(false);
+              console.log('[PhysicsInputBox] 缓存重建后启动模拟');
+            }
+          }, 100);
+          return;
+        }
       }
 
       // ────────────────────────────────────────────────────────────────────
@@ -1289,7 +1526,10 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
       }));
 
       if (backgroundClean) {
+        // 【2026-02-17 重要】开始模拟时才显示残缺背景图（物体被抠掉后的图）
+        // 这样启用自定义路径的物体会从原位置移动到第一个路径点
         setImagePreview(backgroundClean);
+        console.log('[PhysicsInputBox] 切换到残缺背景图，路径物体将从原位置移动到路径起点');
       }
 
       console.log('[约束系统] 传递约束关系给物理引擎:', constraintRelations);
@@ -1300,6 +1540,12 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         runningSimulation.current = null;
       }
 
+      // 清除 SAM 画布上编辑时留下的路径标记（模拟期间由 Matter.js 层接管显示）
+      if (canvasRef.current) {
+        const ctx = canvasRef.current.getContext('2d');
+        if (ctx) ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      }
+
       // 【关键改动】首次创建也使用冻结模式，然后立即解冻
       const sim = runSimulation({
         container: simRef.current,
@@ -1308,7 +1554,8 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         imageRect: imgRef.current?.getBoundingClientRect?.(),
         naturalSize: imageNaturalSize,
         frozen: true,  // 先创建冻结的刚体
-        timeScale: globalParameters.timeScale
+        timeScale: globalParameters.timeScale,
+        initialShowPathVisuals: window.currentPathVisualsVisible !== undefined ? window.currentPathVisualsVisible : true
       });
       runningSimulation.current = sim;
 
@@ -1341,7 +1588,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
       }, 100);
 
     } catch (e) {
-      setError(e?.message || '模拟创建失败');
+      setError(e?.message || t('simulationFailed'));
       setIsSimulationRunning(false);
     } finally {
       setLoading(false);
@@ -1519,7 +1766,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
                          onMouseDown={handlePopupMouseDown}
                        >
                          <span style={{ fontSize: 10, opacity: 0.5 }}>⋮⋮</span>
-                         请选择元素：
+                         {t('selectElement')}
                        </div>
                        {pendingElements.map((e, i) => (
                           <button
@@ -1599,14 +1846,14 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
                       }
                     }}
                   >
-                    {isInteractiveModeActive ? '✓ 交互模式' : '🎮 交互模式'}
+                    {isInteractiveModeActive ? t('interactiveModeActive') : t('interactiveModeInactive')}
                   </button>
                 )}
                 
                 {/* 清空画布按钮（始终显示）*/}
                 <button
                   onClick={handleClearCanvas}
-                  title="清空画布"
+                  title={t('clearCanvas')}
                   style={{
                     width: '32px',
                     height: '32px',
@@ -1659,7 +1906,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
                   }}
                 >
-                  {isSimulationRunning ? '🔄 重置' : '开始模拟 →'}
+                  {isSimulationRunning ? t('reset') : t('startSimulation')}
                 </button>
                 
                 {canDownload && (
@@ -1672,13 +1919,13 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
                       boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
                     }}
                   >
-                    {animationSource === 'plaza' ? '保存到我的' : '下载动画'}
+                    {animationSource === 'plaza' ? t('saveToMine') : t('downloadAnimation')}
                   </button>
                 )}
               </div>
             </div>
           ) : (
-            <div className="upload-text">+ 请将图片上传到这里（点击或拖拽）</div>
+            <div className="upload-text">{t('uploadImageHint')}</div>
           )}
         </div>
         <div className="upload-split-right">
@@ -1692,9 +1939,10 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         </div>
       </div>
 
-      {/* 统一信息区域 - 画布下方横向布局（包含识别元素、已选择、约束关系、广场动画信息、端点选择提示） */}
+      {/* 统一信息区域 - 画布下方横向布局（包含识别元素、已选择、约束关系、广场动画信息、端点选择提示、路径编辑提示） */}
       {(recognizedDetailed.length > 0 || assignments.length > 0 || constraintRelations.length > 0 || plazaAnimationInfo || 
-        ((interactionMode === 'select_pivot' || interactionMode === 'select_first_endpoint' || interactionMode === 'select_second_endpoint') && pendingPivotSelection)) && (
+        ((interactionMode === 'select_pivot' || interactionMode === 'select_first_endpoint' || interactionMode === 'select_second_endpoint') && pendingPivotSelection) ||
+        (interactionMode === 'edit_path' && isPathEditMode)) && (
         <div style={{ 
           marginTop: 8, 
           marginBottom: 16,
@@ -1715,30 +1963,41 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
               flex: '1 1 100%', 
               display: 'flex', 
               alignItems: 'center', 
-              justifyContent: 'space-between',
               gap: 12,
               padding: '4px 0'
             }}>
               {/* 提示信息 */}
-              <div style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <div style={{ fontWeight: 600, color: '#1f2937', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 16 }}>📍</span>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 6,
+                flexWrap: 'nowrap',
+                minWidth: 0
+              }}>
+                <span style={{ 
+                  fontWeight: 600, 
+                  color: '#1f2937', 
+                  fontSize: 14,
+                  whiteSpace: 'nowrap',
+                  overflow: 'visible'
+                }}>
                   {interactionMode === 'select_second_endpoint'
                     ? pendingPivotSelection.secondPrompt
                     : pendingPivotSelection.firstPrompt || pendingPivotSelection.pivotPrompt}
-                </div>
-                <div style={{ fontSize: 12, color: '#6b7280' }}>
+                </span>
+                <span style={{ 
+                  fontSize: 12, 
+                  color: '#6b7280',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  marginLeft: 4
+                }}>
                   {interactionMode === 'select_second_endpoint' ? (
-                    <>第一个端点已选择：<strong>{pendingPivotSelection.firstPoint?.bodyName}</strong>，现在选择第二个端点</>
+                    <>{t('firstEndpointSelected')}<strong>{pendingPivotSelection.firstPoint?.bodyName}</strong>{t('selectSecondEndpoint')}</>
                   ) : (
-                    <>点击图片上的位置选择端点，或点击已分割的元素区域</>
+                    <>{t('selectClickImage')}</>
                   )}
-                  {pendingPivotSelection.element.constraints?.suggested_pivot && interactionMode !== 'select_second_endpoint' && (
-                    <span style={{ color: '#059669', marginLeft: 4 }}>
-                      （建议：{pendingPivotSelection.element.constraints.suggested_pivot}）
-                    </span>
-                  )}
-                </div>
+                </span>
               </div>
               {/* 跳过按钮 */}
               <button
@@ -1749,7 +2008,8 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
                   color: '#6b7280',
                   fontSize: 12, 
                   padding: '6px 14px',
-                  flexShrink: 0
+                  flexShrink: 0,
+                  marginLeft: 'auto'
                 }}
                 onClick={cancelPivotSelection}
                 onMouseEnter={(e) => {
@@ -1759,8 +2019,85 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
                   e.currentTarget.style.backgroundColor = '#f3f4f6';
                 }}
               >
-                跳过选择
+                {t('skipSelection')}
               </button>
+            </div>
+          ) : interactionMode === 'edit_path' && isPathEditMode && pathEditObjectIndex !== null ? (
+            /* 路径编辑提示 - 简洁版 */
+            <div style={{ 
+              flex: '1 1 100%', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 12,
+              padding: '4px 0'
+            }}>
+              <span style={{ 
+                fontWeight: 600, 
+                color: '#1f2937', 
+                fontSize: 14
+              }}>
+                {t('editingPath')}{assignments[pathEditObjectIndex]?.label || assignments[pathEditObjectIndex]?.name}
+                <span style={{ 
+                  fontSize: 13, 
+                  color: '#6b7280',
+                  fontWeight: 400,
+                  marginLeft: '8px'
+                }}>
+                  ({t('pointsSet', { count: assignments[pathEditObjectIndex]?.parameters?.custom_path_points?.length || 0 })})
+                </span>
+              </span>
+              
+              {/* 完成编辑按钮 */}
+              <button
+                onClick={disablePathEdit}
+                style={{
+                  padding: '5px 14px',
+                  borderRadius: 4,
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #ff9800 0%, #ff6b35 100%)',
+                  color: 'white',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  boxShadow: '0 2px 6px rgba(255, 152, 0, 0.35)',
+                  marginLeft: '8px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #fb8c00 0%, #f4511e 100%)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #ff9800 0%, #ff6b35 100%)';
+                }}
+              >
+                {t('finishEditing')}
+              </button>
+              
+              {/* 清除按钮 */}
+              {(assignments[pathEditObjectIndex]?.parameters?.custom_path_points?.length || 0) > 0 && (
+                <button
+                  className="start-btn"
+                  style={{ 
+                    backgroundColor: '#f3f4f6', 
+                    borderColor: '#d1d5db', 
+                    color: '#6b7280',
+                    fontSize: 12, 
+                    padding: '5px 12px',
+                    marginLeft: '8px'
+                  }}
+                  onClick={clearPathPoints}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#e5e7eb';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#f3f4f6';
+                  }}
+                >
+                  {t('clear')}
+                </button>
+              )}
             </div>
           ) : (
             <>
@@ -1792,6 +2129,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
                       </span>
                     )}
                     
+                    {/* 所有广场动画都显示分享按钮 */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -1811,7 +2149,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
                         boxShadow: '0 2px 4px rgba(255, 152, 0, 0.2)'
                       }}
                     >
-                      🔗 分享
+                      {t('share')}
                     </button>
                     
                     {recognizedDetailed && recognizedDetailed.length > 0 && (
@@ -1831,7 +2169,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
                   if (remainingElements.length > 0) {
                     return (
                       <>
-                        <strong style={{ fontSize: 13, color: '#334' }}>待选择元素：</strong>
+                        <strong style={{ fontSize: 13, color: '#334' }}>{t('pendingElements')}</strong>
                         {remainingElements.map((elem, idx) => (
                           <span
                             key={`${elem.name}-${idx}`}
@@ -1848,7 +2186,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
                             {elem.display_name || elem.name}
                           </span>
                         ))}
-                        <span style={{ color: '#9ca3af', fontSize: 11 }}>请在图中框选</span>
+                        <span style={{ color: '#9ca3af', fontSize: 11 }}>{t('pleaseSelectInImage')}</span>
                       </>
                     );
                   }
@@ -1865,7 +2203,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
                 {/* 约束关系显示 */}
                 {constraintRelations.length > 0 && (
                   <>
-                    <strong style={{ fontSize: 12, color: '#475569' }}>约束关系：</strong>
+                    <strong style={{ fontSize: 12, color: '#475569' }}>{t('constraintRelations')}</strong>
                     {constraintRelations.map((c, i) => (
                       <span
                         key={`constraint-${i}`}
@@ -1913,6 +2251,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
                       </span>
                     )}
                     
+                    {/* 所有广场动画都显示分享按钮 */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -1932,7 +2271,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
                         boxShadow: '0 2px 4px rgba(255, 152, 0, 0.2)'
                       }}
                     >
-                      🔗 分享
+                      {t('share')}
                     </button>
                   </>
                 )}
@@ -1942,7 +2281,7 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
         </div>
       )}
 
-      {loading && <LoadingSpinner text="处理中..." />}
+      {loading && <LoadingSpinner text={t('processing')} />}
       <ErrorToast message={error} />
       
       {/* 阶段一新增：保存动画弹窗 */}

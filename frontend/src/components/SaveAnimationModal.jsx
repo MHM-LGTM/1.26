@@ -18,8 +18,10 @@ import React, { useState } from 'react';
 import useAuthStore from '../store/authStore';
 import { API_BASE_URL } from '../config/api';
 import { showToast } from '../utils/toast.js';
+import { useTranslation } from 'react-i18next';
 
 export default function SaveAnimationModal({ isOpen, onClose, sceneData, getSceneData }) {
+  const { t } = useTranslation();
   // 优先使用 getSceneData 函数（动态获取最新数据），否则用传入的 sceneData
   const getCurrentSceneData = () => {
     if (getSceneData) {
@@ -121,7 +123,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
       if (data.code === 0) {
         return data.data.path; // 返回服务器上的相对路径
       } else {
-        throw new Error(data.message || '图片上传失败');
+        throw new Error(data.message || t('imageUploadFailed'));
       }
     } catch (error) {
       console.error('上传图片失败:', error);
@@ -132,13 +134,13 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
   const handleSave = async () => {
     // 检查登录状态
     if (!isLoggedIn || !token) {
-      showToast.warning('请先登录后再保存动画');
+      showToast.warning(t('pleaseLoginToSave'));
       return;
     }
 
     // 检查必填字段
     if (!title.trim()) {
-      showToast.warning('请输入动画名称');
+      showToast.warning(t('pleaseEnterAnimationName'));
       return;
     }
 
@@ -147,7 +149,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
     
     // 检查场景数据
     if (!currentSceneData) {
-      showToast.error('场景数据不存在，请重新运行模拟');
+      showToast.error(t('sceneDataMissing'));
       return;
     }
 
@@ -223,7 +225,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
         
         if (dontAsk) {
           // 用户选择了"不再提醒"，直接关闭
-          showToast.success('保存成功！');
+          showToast.success(t('savingSuccess'));
           onClose();
           setTitle('');
           setDescription('');
@@ -234,19 +236,19 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
       } else {
         // 检查是否是会员限制错误
         if (data.code === 403 && data.data?.is_vip === false) {
-          showToast.error(data.message || '今日次数已用完，开通会员享无限次数');
+          showToast.error(data.message || t('dailyLimitReached'));
           // 可以在这里打开会员弹窗
           setTimeout(() => {
             // 触发打开会员弹窗的事件
             window.dispatchEvent(new CustomEvent('open-membership-modal'));
           }, 2000);
         } else {
-          showToast.error(`保存失败：${data.message || '未知错误'}`);
+          showToast.error(t('saveFailed', { message: data.message || '' }));
         }
       }
     } catch (error) {
       console.error('保存动画失败:', error);
-      showToast.error(`保存失败：${error.message || '网络错误'}`);
+      showToast.error(t('saveFailed', { message: error.message || '' }));
     } finally {
       setSaving(false);
     }
@@ -272,13 +274,13 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
           localStorage.setItem('dontAskPublish', 'true');
         }
         
-        showToast.success('已保存到我的动画并上传到广场！');
+        showToast.success(t('savedAndPublished'));
         handleCloseAll();
       } else {
-        showToast.error(`上传失败：${data.message}`);
+        showToast.error(t('uploadFailed2', { message: data.message }));
       }
     } catch (error) {
-      showToast.error(`上传失败：${error.message}`);
+      showToast.error(t('uploadFailed2', { message: error.message }));
     }
   };
 
@@ -289,7 +291,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
       localStorage.setItem('dontAskPublish', 'true');
     }
     
-    showToast.success('保存成功！');
+    showToast.success(t('savingSuccess'));
     handleCloseAll();
   };
 
@@ -350,7 +352,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
             fontWeight: 600,
             color: '#222'
           }}>
-            ✅ 保存成功！
+            {t('savedSuccess')}
           </h3>
 
           <p style={{ 
@@ -359,8 +361,8 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
             color: '#6b7280',
             lineHeight: 1.6
           }}>
-            是否将动画分享到<strong>动画广场</strong>？<br/>
-            分享后其他用户也能看到并使用
+            <span dangerouslySetInnerHTML={{ __html: t('publishPrompt') }} /><br/>
+            {t('publishPromptHint')}
           </p>
 
           {/* 是否显示用户名 */}
@@ -372,7 +374,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
               marginBottom: 8,
               display: 'block'
             }}>
-              是否公开显示你的用户名？
+              {t('showUsername')}
             </label>
             <div style={{ display: 'flex', gap: 16 }}>
               <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
@@ -382,7 +384,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
                   onChange={() => setShowAuthor(true)}
                   style={{ marginRight: 6 }}
                 />
-                <span style={{ fontSize: 14 }}>显示用户名</span>
+                <span style={{ fontSize: 14 }}>{t('showUsernameOption')}</span>
               </label>
               <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
                 <input
@@ -391,7 +393,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
                   onChange={() => setShowAuthor(false)}
                   style={{ marginRight: 6 }}
                 />
-                <span style={{ fontSize: 14 }}>匿名</span>
+                <span style={{ fontSize: 14 }}>{t('anonymous')}</span>
               </label>
             </div>
           </div>
@@ -405,7 +407,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
                 onChange={(e) => setDontAskAgain(e.target.checked)}
                 style={{ marginRight: 6 }}
               />
-              <span style={{ fontSize: 13, color: '#6b7280' }}>不再提醒</span>
+              <span style={{ fontSize: 13, color: '#6b7280' }}>{t('dontAskAgain')}</span>
             </label>
           </div>
 
@@ -428,7 +430,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
                 color: '#222'
               }}
             >
-              暂不了
+              {t('notNow')}
             </button>
             <button
               onClick={handlePublishToPlaza}
@@ -443,7 +445,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
                 color: '#222'
               }}
             >
-              上传到广场
+              {t('uploadToPlaza')}
             </button>
           </div>
         </div>
@@ -489,7 +491,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
           fontWeight: 600,
           color: '#222'
         }}>
-          保存动画到我的动画库
+          {t('saveAnimationTitle')}
         </h3>
 
         {/* 封面预览 */}
@@ -497,7 +499,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
           <div style={{ marginBottom: 16, textAlign: 'center' }}>
             <img 
               src={getDisplayableImageUrl(getCurrentSceneData()?.originalImageUrl || getCurrentSceneData()?.imagePreview)} 
-              alt="封面预览"
+              alt={t('coverPreviewAlt')}
               style={{
                 maxWidth: '100%',
                 maxHeight: 200,
@@ -515,7 +517,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
               color: '#6b7280', 
               marginTop: 8 
             }}>
-              封面预览（原始上传图片）
+              {t('coverPreview')}
             </p>
           </div>
         )}
@@ -529,13 +531,13 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
             fontWeight: 500,
             color: '#374151'
           }}>
-            动画名称 <span style={{ color: '#ef4444' }}>*</span>
+            {t('animationName')} <span style={{ color: '#ef4444' }}>*</span>
           </label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="例如：弹性碰撞演示"
+            placeholder={t('animationNamePlaceholder')}
             maxLength={100}
             disabled={saving}
             style={{
@@ -570,12 +572,12 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
             fontWeight: 500,
             color: '#374151'
           }}>
-            描述（可选）
+            {t('descriptionOptional')}
           </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="描述这个动画的内容，例如：展示两个小球在光滑斜面上的弹性碰撞过程..."
+            placeholder={t('descriptionPlaceholder')}
             maxLength={500}
             rows={4}
             disabled={saving}
@@ -624,7 +626,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
               color: '#222'
             }}
           >
-            取消
+            {t('cancel')}
           </button>
           <button
             onClick={handleSave}
@@ -640,7 +642,7 @@ export default function SaveAnimationModal({ isOpen, onClose, sceneData, getScen
               color: saving || !title.trim() ? '#9ca3af' : '#222'
             }}
           >
-            {saving ? '保存中...' : '保存'}
+            {saving ? t('saving') : t('save')}
           </button>
         </div>
       </div>

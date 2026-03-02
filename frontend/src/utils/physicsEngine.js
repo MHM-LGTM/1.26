@@ -87,7 +87,8 @@ export function runSimulation({
   naturalSize = { w: 0, h: 0 }, 
   frozen = false, 
   interactiveMode = false,
-  timeScale = 1.0
+  timeScale = 1.0,
+  initialShowPathVisuals = true
 }) {
 
   // ────────────────────────────────────────────────────────────────
@@ -136,6 +137,83 @@ export function runSimulation({
   
   // 凹面体精灵图信息存储
   const concaveSprites = [];
+  
+  // ============================================================================
+  // 【2026-02-15 新增】自定义路径动画系统
+  // ============================================================================
+  const customPaths = new Map(); // 存储每个刚体的自定义路径数据
+  let pathEditMode = null; // 当前正在编辑路径的物体信息: { body, points: [], isActive: boolean }
+  let showPathVisuals = initialShowPathVisuals; // 路径点和连线的显示开关（继承调用方传入的初始值）
+
+  // ============================================================================
+  // 【2026-02-14 新增】运动轨迹系统
+  // ============================================================================
+  const bodyTrails = new Map(); // 存储每个刚体的轨迹数据：{ body, trail: [], config: {} }
+  
+  /**
+   * 初始化刚体的轨迹配置
+   * @param {Matter.Body} body - 刚体对象
+   * @param {Object} params - 轨迹参数
+   */
+  const initBodyTrail = (body, params = {}) => {
+    if (params.show_trail === true) {
+      bodyTrails.set(body, {
+        trail: [], // 历史位置点数组（无限制，保留所有路径）
+        config: {
+          enabled: true,
+          color: params.trail_color ?? '#ffd700',
+        }
+      });
+      console.log(`[轨迹系统] 为刚体启用轨迹: ${body.label || '未命名'}，颜色=${params.trail_color}，将永久保留所有运动路径`);
+    }
+  };
+  
+  /**
+   * 初始化刚体的自定义路径配置
+   * @param {Matter.Body} body - 刚体对象
+   * @param {Object} params - 路径参数
+   * @param {number} sx - X方向缩放比例
+   * @param {number} sy - Y方向缩放比例
+   */
+  const initCustomPath = (body, params, sx, sy) => {
+    console.log(`[路径系统DEBUG] initCustomPath调用:`, {
+      enabled: params.custom_path_enabled,
+      pointsCount: params.custom_path_points?.length,
+      speed: params.path_speed,
+      sx, sy
+    });
+    
+    if (params.custom_path_enabled === true && params.custom_path_points && params.custom_path_points.length > 0) {
+      // 将原图坐标转换为画布坐标
+      const canvasPoints = params.custom_path_points.map(p => ({
+        x: Math.round(p.x * sx),
+        y: Math.round(p.y * sy)
+      }));
+      
+      console.log(`[路径系统DEBUG] 转换后的画布坐标:`, canvasPoints);
+      
+      customPaths.set(body, {
+        enabled: true,
+        points: canvasPoints, // 使用转换后的画布坐标
+        speed: params.path_speed ?? 100, // 移动速度 px/s
+        currentIndex: 0, // 当前移动到的路径点索引
+        progress: 0, // 当前路径段的进度 [0-1]
+        isLooping: false, // 是否循环路径
+        isPaused: false, // 是否暂停
+      });
+      
+      // 将物体设置为 kinematic（运动学）模式：不受重力和碰撞影响，但可以被程序控制移动
+      Body.setStatic(body, true);
+      
+      // 将物体移动到路径起点
+      if (canvasPoints.length > 0) {
+        Body.setPosition(body, canvasPoints[0]);
+        console.log(`[路径系统DEBUG] 物体移动到起点:`, canvasPoints[0]);
+      }
+      
+      console.log(`[路径系统] 为刚体启用自定义路径: ${body.label || '未命名'}，路径点数=${canvasPoints.length}，速度=${params.path_speed}px/s`);
+    }
+  };
 
 
   // ────────────────────────────────────────────────────────────────
@@ -219,6 +297,14 @@ export function runSimulation({
           body.label = 'conveyor';
           conveyorParams.set(bodyName, { speed: isNaN(speed) ? 0 : speed });
         }
+        
+        // 初始化运动轨迹（仅对动态物体）
+        if (!isStatic) {
+          initBodyTrail(body, obj.parameters || {});
+          // 初始化自定义路径（传入缩放比例）
+          initCustomPath(body, obj.parameters || {}, sx, sy);
+        }
+        
         console.log(`[物理引擎] 凸多边形创建成功 (凸包): ${bodyName}`);
       }
 
@@ -228,7 +314,7 @@ export function runSimulation({
 
       if (simplified.length < 3) {
         console.warn(`[物理引擎] DP简化后顶点不足，回退到凸包: ${obj.name || '未命名'}`);
-        createConvexHullBody(processed, obj, isStatic, friction, air, restitution, sx, sy, Bodies, Vertices, Body, Composite, engine, bodiesMap);
+        createConvexHullBody(processed, obj, isStatic, friction, air, restitution, sx, sy, Bodies, Vertices, Body, Composite, engine, bodiesMap, initBodyTrail);
         return;
       }
 
@@ -238,7 +324,7 @@ export function runSimulation({
 
       if (convexPolygons.length === 0) {
         console.warn(`[物理引擎] 凸分解失败，回退到凸包: ${obj.name || '未命名'}`);
-        createConvexHullBody(processed, obj, isStatic, friction, air, restitution, sx, sy, Bodies, Vertices, Body, Composite, engine, bodiesMap);
+        createConvexHullBody(processed, obj, isStatic, friction, air, restitution, sx, sy, Bodies, Vertices, Body, Composite, engine, bodiesMap, initBodyTrail);
         return;
       }
 
@@ -298,7 +384,7 @@ export function runSimulation({
     } else {
       // 情况C：动态凹面体 - 使用凸包近似
       console.log(`[物理引擎] 动态凹面体使用凸包近似: ${obj.name || '未命名'}`);
-      createConvexHullBody(processed, obj, isStatic, friction, air, restitution, sx, sy, Bodies, Vertices, Body, Composite, engine, bodiesMap);
+      createConvexHullBody(processed, obj, isStatic, friction, air, restitution, sx, sy, Bodies, Vertices, Body, Composite, engine, bodiesMap, initBodyTrail, (body, params) => initCustomPath(body, params, sx, sy));
     }
   });
 
@@ -377,8 +463,8 @@ export function runSimulation({
         // 创建 VerletRope 实例
         const ropeParams = c.parameters || {};
         const segments = ropeParams.segments || 15;
-        const stiffness = ropeParams.stiffness || 0.9;
-        const damping = ropeParams.damping || 0.98;
+        const stiffness = ropeParams.stiffness || 0.999;  // 默认非常硬的绳子
+        const damping = ropeParams.damping || 0.99;  // 高阻尼，快速稳定
 
         const rope = new VerletRope(
           firstPoint.x,
@@ -632,6 +718,92 @@ export function runSimulation({
         });
       }
     }
+    
+    // ============================================================================
+    // 【2026-02-15 新增】更新自定义路径动画
+    // ============================================================================
+    customPaths.forEach((pathData, body) => {
+      if (!pathData.enabled || pathData.isPaused || pathData.points.length < 2) return;
+      
+      const { points, speed, currentIndex, progress } = pathData;
+      
+      // 获取当前路径段的起点和终点
+      const nextIndex = currentIndex + 1;
+      
+      // 检查是否已经到达最后一个点
+      if (nextIndex >= points.length) {
+        if (pathData.isLooping) {
+          // 循环模式：回到起点
+          pathData.currentIndex = 0;
+          pathData.progress = 0;
+        } else {
+          // 非循环模式：停止动画
+          pathData.isPaused = true;
+          console.log(`[路径系统] 路径动画完成（已到达终点）: ${body.label || '未命名'}`);
+          return;
+        }
+      }
+      
+      const start = points[currentIndex];
+      const end = points[nextIndex < points.length ? nextIndex : 0];
+      
+      // 计算路径段长度
+      const dx = end.x - start.x;
+      const dy = end.y - start.y;
+      const segmentLength = Math.sqrt(dx * dx + dy * dy);
+      
+      if (segmentLength === 0) {
+        // 起点和终点重合，跳到下一段
+        pathData.currentIndex = nextIndex;
+        pathData.progress = 0;
+        console.log(`[路径系统] 跳过重合点，移动到索引 ${nextIndex}`);
+        return;
+      }
+      
+      // 计算当前帧应该移动的距离（像素）
+      // engine.timing.lastDelta 是上一帧的时间（毫秒）
+      const deltaTime = engine.timing.lastDelta / 1000; // 转换为秒
+      const moveDistance = speed * deltaTime * engine.timing.timeScale; // 考虑时间缩放
+      
+      // 更新进度
+      pathData.progress += moveDistance / segmentLength;
+      
+      // 计算旋转角度（路径方向）
+      const angle = Math.atan2(dy, dx);
+
+      // 如果已完成当前路径段
+      if (pathData.progress >= 1.0) {
+        pathData.currentIndex = nextIndex;
+        pathData.progress = 0;
+        console.log(`[路径系统] 完成路径段 ${currentIndex} → ${nextIndex}，总点数=${points.length}`);
+        // 将物体精确放置到当前段的终点，下一帧再继续或停止
+        Body.setPosition(body, end);
+        Body.setAngle(body, angle);
+        return;
+      }
+      
+      // 计算当前位置（线性插值）
+      const currentPos = {
+        x: start.x + dx * pathData.progress,
+        y: start.y + dy * pathData.progress
+      };
+      
+      // 更新刚体位置
+      Body.setPosition(body, currentPos);
+      Body.setAngle(body, angle);
+    });
+    
+    // ============================================================================
+    // 【2026-02-14 新增】更新运动轨迹
+    // 【2026-02-14 修正】永久保留所有路径，不限制长度
+    // ============================================================================
+    bodyTrails.forEach((trailData, body) => {
+      if (!trailData.config.enabled) return;
+      
+      // 记录当前位置（永久保留，不限制长度）
+      const pos = { x: body.position.x, y: body.position.y };
+      trailData.trail.push(pos);
+    });
   };
 
   /**
@@ -692,6 +864,101 @@ export function runSimulation({
   const ropeRenderHandler = () => {
     if (render.context) {
       const ctx = render.context;
+      
+      // ============================================================================
+      // 【2026-02-14 新增】绘制运动轨迹（最先绘制，在底层）
+      // 【2026-02-14 优化】点状轨迹，统一亮度，无渐变效果
+      // ============================================================================
+      bodyTrails.forEach((trailData, body) => {
+        if (!trailData.config.enabled || trailData.trail.length < 2) return;
+        
+        const trail = trailData.trail;
+        const color = trailData.config.color;
+        
+        ctx.save();
+        
+        // 绘制轨迹点（点状效果，均匀分布）
+        for (let i = 0; i < trail.length; i++) {
+          const point = trail[i];
+          
+          // 绘制小圆点（更细更亮）
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, 1.5, 0, Math.PI * 2);  // 半径 1.5px，更细
+          ctx.fillStyle = color;  // 统一颜色，无渐变
+          ctx.fill();
+          
+          // 添加高光效果（让点更亮）
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, 1, 0, Math.PI * 2);  // 内圈更亮
+          ctx.fillStyle = '#ffffff';  // 白色高光
+          ctx.globalAlpha = 0.3;  // 半透明
+          ctx.fill();
+          ctx.globalAlpha = 1.0;  // 恢复不透明
+        }
+        
+        ctx.restore();
+      });
+      
+      // ============================================================================
+      // 【2026-02-15 新增】绘制自定义路径点和连线
+      // ============================================================================
+      if (showPathVisuals) {
+        customPaths.forEach((pathData, body) => {
+          if (!pathData.enabled || pathData.points.length === 0) return;
+          
+          const points = pathData.points;
+          
+          ctx.save();
+          
+          // 绘制路径连线
+          if (points.length > 1) {
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) {
+              ctx.lineTo(points[i].x, points[i].y);
+            }
+            // 如果是循环路径，连接回起点
+            if (pathData.isLooping) {
+              ctx.lineTo(points[0].x, points[0].y);
+            }
+            ctx.strokeStyle = 'rgba(16, 185, 129, 0.6)'; // 绿色半透明
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]); // 虚线效果
+            ctx.stroke();
+            ctx.setLineDash([]); // 恢复实线
+          }
+          
+          // 绘制路径点
+          points.forEach((point, index) => {
+            // 起点用不同颜色标识
+            const isStart = index === 0;
+            const color = isStart ? '#ef4444' : '#10b981'; // 起点红色，其他点绿色
+            
+            // 外圈
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, 6, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+            
+            // 内圈（白色高光）
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, 3, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.globalAlpha = 0.5;
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+            
+            // 绘制序号
+            ctx.font = 'bold 10px Arial';
+            ctx.fillStyle = '#000000';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(index + 1, point.x, point.y);
+          });
+          
+          ctx.restore();
+        });
+      }
       
       // 绘制凹面体精灵图
       if (concaveSprites.length > 0) {
@@ -777,6 +1044,12 @@ export function runSimulation({
     }
     console.log(`[物理引擎] 已冻结 ${frozenBodies.length} 个动态刚体`);
     mouseConstraint.constraint.render.visible = false;
+    
+    // 如果有自定义路径动画，需要启动Runner（否则路径动画不会更新）
+    if (customPaths.size > 0) {
+      console.log('[物理引擎] 检测到路径动画，启动Runner');
+      Runner.run(runner, engine);
+    }
   } else if (isInteractiveModeActive) {
     console.log('[物理引擎] 交互模式：清除所有初始速度，保持物理约束');
     const allBodies = Composite.allBodies(engine.world);
@@ -878,6 +1151,13 @@ export function runSimulation({
       return isInteractiveModeActive;
     },
     
+    clearTrails: () => {
+      bodyTrails.forEach((trailData) => {
+        trailData.trail = [];
+      });
+      console.log('[轨迹系统] 已清空所有轨迹数据');
+    },
+    
     getInteractiveMode: () => {
       return isInteractiveModeActive;
     },
@@ -886,6 +1166,163 @@ export function runSimulation({
       const scale = Math.max(0.1, Math.min(3, newTimeScale)); // 限制在 0.1 到 3 之间
       engine.timing.timeScale = scale;
       console.log(`[物理引擎] 时间缩放已更新为: ${scale}x`);
+    },
+    
+    // ============================================================================
+    // 【2026-02-15 新增】自定义路径控制方法
+    // ============================================================================
+    
+    /**
+     * 启用路径编辑模式
+     * @param {string} bodyName - 要编辑路径的物体名称
+     * @returns {boolean} - 是否成功启用
+     */
+    enablePathEditMode: (bodyName) => {
+      const body = bodiesMap[bodyName];
+      if (!body) {
+        console.warn(`[路径系统] 未找到物体: ${bodyName}`);
+        return false;
+      }
+      
+      // 检查是否已启用自定义路径
+      const pathData = customPaths.get(body);
+      if (!pathData || !pathData.enabled) {
+        console.warn(`[路径系统] 物体未启用自定义路径: ${bodyName}`);
+        return false;
+      }
+      
+      pathEditMode = {
+        body: body,
+        bodyName: bodyName,
+        points: [...pathData.points], // 复制现有路径点
+        isActive: true
+      };
+      
+      console.log(`[路径系统] 启用路径编辑模式: ${bodyName}`);
+      return true;
+    },
+    
+    /**
+     * 禁用路径编辑模式
+     */
+    disablePathEditMode: () => {
+      pathEditMode = null;
+      console.log(`[路径系统] 禁用路径编辑模式`);
+    },
+    
+    /**
+     * 添加路径点（在编辑模式下）
+     * @param {number} x - 点的X坐标
+     * @param {number} y - 点的Y坐标
+     * @returns {boolean} - 是否成功添加
+     */
+    addPathPoint: (x, y) => {
+      if (!pathEditMode || !pathEditMode.isActive) {
+        console.warn(`[路径系统] 路径编辑模式未启用`);
+        return false;
+      }
+      
+      pathEditMode.points.push({ x, y });
+      
+      // 更新路径数据
+      const pathData = customPaths.get(pathEditMode.body);
+      if (pathData) {
+        pathData.points = [...pathEditMode.points];
+        pathData.currentIndex = 0;
+        pathData.progress = 0;
+        pathData.isPaused = false;
+        
+        // 如果是第一个点，将物体移动到起点
+        if (pathData.points.length === 1) {
+          Body.setPosition(pathEditMode.body, { x, y });
+        }
+      }
+      
+      console.log(`[路径系统] 添加路径点: (${x}, ${y}), 总点数=${pathEditMode.points.length}`);
+      return true;
+    },
+    
+    /**
+     * 清除路径点
+     * @param {string} bodyName - 物体名称
+     */
+    clearPathPoints: (bodyName) => {
+      const body = bodiesMap[bodyName];
+      if (!body) return;
+      
+      const pathData = customPaths.get(body);
+      if (pathData) {
+        pathData.points = [];
+        pathData.currentIndex = 0;
+        pathData.progress = 0;
+        pathData.isPaused = true;
+      }
+      
+      if (pathEditMode && pathEditMode.bodyName === bodyName) {
+        pathEditMode.points = [];
+      }
+      
+      console.log(`[路径系统] 清除路径点: ${bodyName}`);
+    },
+    
+    /**
+     * 开始路径动画
+     * @param {string} bodyName - 物体名称
+     * @param {boolean} loop - 是否循环
+     */
+    startPathAnimation: (bodyName, loop = false) => {
+      const body = bodiesMap[bodyName];
+      if (!body) return;
+      
+      const pathData = customPaths.get(body);
+      if (pathData && pathData.points.length >= 2) {
+        pathData.isPaused = false;
+        pathData.isLooping = loop;
+        pathData.currentIndex = 0;
+        pathData.progress = 0;
+        
+        // 将物体移动到起点
+        Body.setPosition(body, pathData.points[0]);
+        
+        console.log(`[路径系统] 开始路径动画: ${bodyName}, 循环=${loop}`);
+      }
+    },
+    
+    /**
+     * 暂停路径动画
+     * @param {string} bodyName - 物体名称
+     */
+    pausePathAnimation: (bodyName) => {
+      const body = bodiesMap[bodyName];
+      if (!body) return;
+      
+      const pathData = customPaths.get(body);
+      if (pathData) {
+        pathData.isPaused = true;
+        console.log(`[路径系统] 暂停路径动画: ${bodyName}`);
+      }
+    },
+    
+    /**
+     * 获取画布对象（用于添加点击事件监听）
+     */
+    getCanvas: () => {
+      return render.canvas;
+    },
+    
+    /**
+     * 获取当前路径编辑模式状态
+     */
+    getPathEditMode: () => {
+      return pathEditMode;
+    },
+    
+    /**
+     * 设置路径点和连线的显示/隐藏
+     * @param {boolean} visible - true=显示，false=隐藏
+     */
+    setPathVisualsVisible: (visible) => {
+      showPathVisuals = visible;
     },
     
     stop: () => {
@@ -898,6 +1335,9 @@ export function runSimulation({
       ropes.length = 0; // 清空绳索数组
       concaveSprites.length = 0; // 清空凹面体精灵图数组
       spriteImageCache.clear(); // 清空精灵图缓存
+      bodyTrails.clear(); // 清空轨迹数据
+      customPaths.clear(); // 清空自定义路径数据
+      pathEditMode = null; // 清空路径编辑模式
       Composite.clear(engine.world, false);
       Engine.clear(engine);
       if (render.canvas) {

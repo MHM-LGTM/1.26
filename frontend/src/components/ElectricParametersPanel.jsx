@@ -10,6 +10,7 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { ELECTRIC_ELEMENTS, isAdjustable } from './electric/elementTypes.js';
 
 export default function ElectricParametersPanel({ 
@@ -17,6 +18,8 @@ export default function ElectricParametersPanel({
   onParametersChange, // 参数变化回调 (elementIndex, paramName, value)
   isSimulating        // 是否正在模拟
 }) {
+  const { t } = useTranslation();
+  
   if (!elements || elements.length === 0) {
     return (
       <div style={{
@@ -30,8 +33,8 @@ export default function ElectricParametersPanel({
       }}>
         <div style={{ fontSize: 48, marginBottom: 12 }}>⚡</div>
         <div style={{ fontSize: 14, textAlign: 'center' }}>
-          上传电路图并选择元件后<br />
-          可在此调节参数
+          {t('uploadCircuitAndSelect')}<br />
+          {t('adjustParamsHere')}
         </div>
       </div>
     );
@@ -53,7 +56,7 @@ export default function ElectricParametersPanel({
         gap: 8
       }}>
         <span>⚡</span>
-        电学参数调节
+        {t('electricParamsTitle')}
         {isSimulating && (
           <span style={{
             fontSize: 10,
@@ -62,7 +65,7 @@ export default function ElectricParametersPanel({
             color: '#166534',
             borderRadius: 4
           }}>
-            实时生效
+            {t('realTimeEffect')}
           </span>
         )}
       </div>
@@ -74,6 +77,7 @@ export default function ElectricParametersPanel({
             element={element}
             index={index}
             onParametersChange={onParametersChange}
+          
           />
         ))}
       </div>
@@ -85,6 +89,7 @@ export default function ElectricParametersPanel({
  * 单个元件的参数控件
  */
 function ElementControl({ element, index, onParametersChange }) {
+  const { t } = useTranslation();
   const config = ELECTRIC_ELEMENTS[element.element_type];
   if (!config) return null;
 
@@ -120,7 +125,7 @@ function ElementControl({ element, index, onParametersChange }) {
       {/* 电压调节（电源） */}
       {element.element_type === 'battery' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 12, color: '#6b7280', minWidth: 50 }}>电压:</span>
+          <span style={{ fontSize: 12, color: '#6b7280', minWidth: 50 }}>{t('voltage')}</span>
           <input
             type="range"
             min={config.minVoltage || 1}
@@ -141,7 +146,7 @@ function ElementControl({ element, index, onParametersChange }) {
         element.element_type === 'lamp' || 
         element.element_type === 'rheostat') && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 12, color: '#6b7280', minWidth: 50 }}>电阻:</span>
+          <span style={{ fontSize: 12, color: '#6b7280', minWidth: 50 }}>{t('resistance')}</span>
           <input
             type="range"
             min={config.minResistance || 0}
@@ -160,7 +165,7 @@ function ElementControl({ element, index, onParametersChange }) {
       {/* 开关状态调节 */}
       {element.element_type === 'switch' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 12, color: '#6b7280', minWidth: 50 }}>状态:</span>
+          <span style={{ fontSize: 12, color: '#6b7280', minWidth: 50 }}>{t('status')}</span>
           <button
             onClick={() => handleChange('is_closed', !(element.parameters?.is_closed ?? false))}
             style={{
@@ -178,7 +183,7 @@ function ElementControl({ element, index, onParametersChange }) {
               transition: 'all 0.2s'
             }}
           >
-            {element.parameters?.is_closed ? '✓ 闭合' : '断开'}
+            {element.parameters?.is_closed ? t('switchClosed') : t('switchOpen')}
           </button>
         </div>
       )}
@@ -186,7 +191,7 @@ function ElementControl({ element, index, onParametersChange }) {
       {/* 电流表和电压表只显示信息，不可调节 */}
       {(element.element_type === 'ammeter' || element.element_type === 'voltmeter') && (
         <div style={{ fontSize: 11, color: '#9ca3af' }}>
-          {element.element_type === 'ammeter' ? '电阻可忽略' : '电阻极大'}
+          {element.element_type === 'ammeter' ? t('ammeterHint') : t('voltmeterHint')}
         </div>
       )}
     </div>

@@ -12,15 +12,17 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export default function InputSelector() {
+  const { t } = useTranslation();
   const { pathname } = useLocation();
   const enableMath = import.meta.env.VITE_ENABLE_MATH === 'true';
   return (
     <div className="selector">
-      <Link to="/physics" style={{ fontWeight: pathname === '/physics' ? 700 : 400 }}>物理模拟</Link>
+      <Link to="/physics" style={{ fontWeight: pathname === '/physics' ? 700 : 400 }}>{t('physicsSimulation')}</Link>
       {enableMath && (
-        <Link to="/math" style={{ fontWeight: pathname === '/math' ? 700 : 400 }}>数学解题</Link>
+        <Link to="/math" style={{ fontWeight: pathname === '/math' ? 700 : 400 }}>{t('mathSolving')}</Link>
       )}
     </div>
   );

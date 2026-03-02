@@ -11,11 +11,13 @@
  */
 
 import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import LikeButton from './LikeButton.jsx';
 import { API_BASE_URL } from '../config/api';
 import { showToast } from '../utils/toast.js';
 
 const PlazaPanel = forwardRef(({ onLoadAnimation, onPlazaAnimationLoad }, ref) => {
+  const { t } = useTranslation();
   const [animations, setAnimations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCardId, setSelectedCardId] = useState(null); // 选中的卡片ID
@@ -101,11 +103,11 @@ const PlazaPanel = forwardRef(({ onLoadAnimation, onPlazaAnimationLoad }, ref) =
           });
         }
       } else {
-        showToast.error(`加载失败：${data.message}`);
+        showToast.error(t('loadFailed', { message: data.message }));
       }
     } catch (error) {
       console.error('加载广场动画失败:', error);
-      showToast.error(`加载失败：${error.message}`);
+      showToast.error(t('loadFailed', { message: error.message }));
     }
   };
 
@@ -140,7 +142,7 @@ const PlazaPanel = forwardRef(({ onLoadAnimation, onPlazaAnimationLoad }, ref) =
           color: '#222',
           flexShrink: 0
         }}>
-          动画广场 ({animations.length})
+          {t('animationPlaza')} ({animations.length})
         </h3>
 
       {loading ? (
@@ -156,7 +158,7 @@ const PlazaPanel = forwardRef(({ onLoadAnimation, onPlazaAnimationLoad }, ref) =
             fontSize: 14,
             margin: 0
           }}>
-            加载中...
+            {t('loading')}
           </p>
         </div>
       ) : animations.length === 0 ? (
@@ -173,8 +175,8 @@ const PlazaPanel = forwardRef(({ onLoadAnimation, onPlazaAnimationLoad }, ref) =
             margin: 0,
             lineHeight: 1.6
           }}>
-            广场还没有动画<br/>
-            上传你的动画，成为第一个分享者吧！
+            {t('plazaEmpty')}<br/>
+            {t('beFirstToShare')}
           </p>
         </div>
       ) : (

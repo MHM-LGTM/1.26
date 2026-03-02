@@ -18,8 +18,10 @@ import { runSimulation } from '../utils/physicsEngine.js';
 import { API_BASE_URL } from '../config/api';
 import { showToast } from '../utils/toast.js';
 import PhysicsParametersPanel from '../components/PhysicsParametersPanel.jsx';
+import { useTranslation } from 'react-i18next';
 
 export default function PlayPage() {
+  const { t } = useTranslation();
   const { shareCode } = useParams();
   const [animation, setAnimation] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -28,9 +30,17 @@ export default function PlayPage() {
   const [simulationCache, setSimulationCache] = useState(null); // 缓存初始状态用于重置
   const [assignments, setAssignments] = useState([]); // 物体数据（用于参数调节）
   const [globalParameters, setGlobalParameters] = useState({ timeScale: 1.0 }); // 全局参数
+
+  // 自定义路径编辑模式
+  const [isPathEditMode, setIsPathEditMode] = useState(false);
+  const [pathEditObjectIndex, setPathEditObjectIndex] = useState(null);
+  const [interactionMode, setInteractionMode] = useState('idle');
+  const [imageNaturalSize, setImageNaturalSize] = useState({ w: 800, h: 600 });
   
   const imgRef = useRef(null);
   const simRef = useRef(null);
+  const canvasRef = useRef(null);
+  const canvasContainerRef = useRef(null); // 画布容器，用于路径编辑时确保可点击区域
   const runningSimulation = useRef(null);
 
   // 加载动画数据
@@ -52,6 +62,11 @@ export default function PlayPage() {
           }
           setAnimation(animData);
           
+          // 从场景数据预设置图片原始尺寸（用于路径编辑坐标转换，避免图片缓存导致 onLoad 延迟）
+          if (animData.scene_data?.imageNaturalSize) {
+            setImageNaturalSize(animData.scene_data.imageNaturalSize);
+          }
+          
           // 设置物体数据用于参数调节面板
           if (animData.scene_data && animData.scene_data.objects) {
             setAssignments(animData.scene_data.objects);
@@ -64,11 +79,11 @@ export default function PlayPage() {
             console.log('[PlayPage] 加载全局参数:', animData.scene_data.global_parameters);
           }
         } else {
-          setError(data.message || '动画不存在或链接已失效');
+          setError(data.message || t('loadFailed', { message: '' }));
         }
       } catch (err) {
         console.error('加载动画失败:', err);
-        setError('加载失败，请检查网络连接');
+        setError(t('loadFailed', { message: '' }));
       } finally {
         setLoading(false);
       }
@@ -88,6 +103,38 @@ export default function PlayPage() {
       }
     };
   }, []);
+
+  // 用 ref 保存最新的路径编辑函数，避免闭包过期问题
+  const enablePathEditRef = useRef(null);
+  const disablePathEditRef = useRef(null);
+
+  // 注册路径编辑全局函数（只注册一次，通过 ref 始终拿到最新版本）
+  useEffect(() => {
+    window.enablePathEdit = (idx) => enablePathEditRef.current?.(idx);
+    window.disablePathEdit = () => disablePathEditRef.current?.();
+    window.setPathVisualsVisible = (visible) => {
+      runningSimulation.current?.setPathVisualsVisible(visible);
+    };
+    return () => {
+      delete window.enablePathEdit;
+      delete window.disablePathEdit;
+      delete window.setPathVisualsVisible;
+    };
+  }, []);
+
+  // 监听窗口大小变化，同步画布尺寸
+  useEffect(() => {
+    window.addEventListener('resize', syncCanvasSize);
+    return () => window.removeEventListener('resize', syncCanvasSize);
+  }, []);
+
+  // 进入路径编辑模式时延迟同步画布尺寸（修复通过链接打开时画布可能未正确初始化的问题）
+  useEffect(() => {
+    if (isPathEditMode && animation?.scene_data?.imagePreview) {
+      const timer = setTimeout(syncCanvasSize, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isPathEditMode, animation?.scene_data?.imagePreview]);
 
   // 处理参数变化
   const handleParametersChange = (objectIndex, newParams) => {
@@ -125,6 +172,140 @@ export default function PlayPage() {
       runningSimulation.current.setTimeScale(newGlobalParams.timeScale);
       console.log(`[PlayPage] 实时更新时间缩放: ${newGlobalParams.timeScale}x`);
     }
+  };
+
+  // ============================================================================
+  // 自定义路径编辑功能
+  // ============================================================================
+
+  const syncCanvasSize = () => {
+    if (!canvasRef.current) return;
+    // 优先使用图片尺寸，若图片未加载或尺寸为0，则使用容器尺寸作为回退（确保路径编辑时可点击）
+    let w = 0, h = 0;
+    if (imgRef.current) {
+      w = imgRef.current.clientWidth || 0;
+      h = imgRef.current.clientHeight || 0;
+    }
+    if ((!w || !h) && canvasContainerRef.current) {
+      const rect = canvasContainerRef.current.getBoundingClientRect();
+      w = Math.floor(rect.width) || 0;
+      h = Math.floor(rect.height) || 0;
+    }
+    if (!w || !h) return;
+    const dpr = window.devicePixelRatio || 1;
+    canvasRef.current.width = Math.max(1, Math.floor(w * dpr));
+    canvasRef.current.height = Math.max(1, Math.floor(h * dpr));
+    canvasRef.current.style.width = `${Math.max(1, w)}px`;
+    canvasRef.current.style.height = `${Math.max(1, h)}px`;
+    const ctx = canvasRef.current.getContext('2d');
+    if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+
+  const handleImageLoad = (ev) => {
+    const newSize = { w: ev.target.naturalWidth, h: ev.target.naturalHeight };
+    setImageNaturalSize(newSize);
+    syncCanvasSize();
+  };
+
+  const enablePathEdit = (objectIndex) => {
+    console.log('[PlayPage] enablePathEdit called, objectIndex:', objectIndex, 'assignments:', assignments);
+    const obj = assignments[objectIndex];
+    if (!obj) {
+      console.warn('[PlayPage 路径编辑] 物体不存在:', objectIndex);
+      showToast.warning(t('objectNotExist'));
+      return;
+    }
+    if (!obj.parameters?.custom_path_enabled) {
+      showToast.warning(t('pleaseEnableCustomPath'));
+      return;
+    }
+    if (simulating) {
+      showToast.warning(t('pleaseResetFirst'));
+      return;
+    }
+    syncCanvasSize();
+    setIsPathEditMode(true);
+    setPathEditObjectIndex(objectIndex);
+    setInteractionMode('edit_path');
+    // 延迟再次同步画布尺寸，确保布局计算完成（修复通过链接打开时画布尺寸为0导致无法点击的问题）
+    requestAnimationFrame(() => {
+      syncCanvasSize();
+    });
+    if (!obj.parameters.custom_path_points) {
+      handleParametersChange(objectIndex, { custom_path_points: [] });
+    }
+    showToast.success(t('pathEditEnabled', { name: obj.label || obj.name }));
+  };
+
+  // 每次渲染都更新 ref，确保 window.enablePathEdit 始终调用最新版本
+  enablePathEditRef.current = enablePathEdit;
+
+  const disablePathEdit = () => {
+    setIsPathEditMode(false);
+    setPathEditObjectIndex(null);
+    setInteractionMode('idle');
+  };
+
+  disablePathEditRef.current = disablePathEdit;
+
+  const handleCanvasMouseUp = (ev) => {
+    if (interactionMode !== 'edit_path' || !isPathEditMode || pathEditObjectIndex === null) return;
+    if (!canvasRef.current || !imgRef.current) return;
+
+    const imgRect = imgRef.current.getBoundingClientRect();
+    // 使用图片边界进行坐标转换（画布可能比图片大，需确保点击在图片区域内）
+    const xInImg = ev.clientX - imgRect.left;
+    const yInImg = ev.clientY - imgRect.top;
+    if (xInImg < 0 || xInImg > imgRect.width || yInImg < 0 || yInImg > imgRect.height) return;
+
+    const scaleX = imageNaturalSize.w / imgRect.width;
+    const scaleY = imageNaturalSize.h / imgRect.height;
+    const originalX = Math.round(xInImg * scaleX);
+    const originalY = Math.round(yInImg * scaleY);
+
+    const newPoint = { x: originalX, y: originalY };
+    const currentPoints = assignments[pathEditObjectIndex]?.parameters?.custom_path_points || [];
+    const updatedPoints = [...currentPoints, newPoint];
+
+    handleParametersChange(pathEditObjectIndex, { custom_path_points: updatedPoints });
+
+    const ctx = canvasRef.current.getContext('2d');
+    const isStart = updatedPoints.length === 1;
+    const color = isStart ? '#ef4444' : '#10b981';
+    const drawX = xInImg;
+    const drawY = yInImg;
+
+    ctx.beginPath();
+    ctx.arc(drawX, drawY, 6, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(drawX, drawY, 3, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.fill();
+
+    ctx.font = 'bold 10px Arial';
+    ctx.fillStyle = '#000000';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(updatedPoints.length, drawX, drawY);
+
+    if (updatedPoints.length > 1) {
+      const prevPointOriginal = updatedPoints[updatedPoints.length - 2];
+      const prevX = Math.round(prevPointOriginal.x / scaleX);
+      const prevY = Math.round(prevPointOriginal.y / scaleY);
+      ctx.beginPath();
+      ctx.moveTo(prevX, prevY);
+      ctx.lineTo(x, y);
+      ctx.strokeStyle = 'rgba(16, 185, 129, 0.6)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    console.log(`[PlayPage 路径编辑] 添加路径点 #${updatedPoints.length}: 原图(${originalX}, ${originalY}), 画布(${x}, ${y})`);
   };
 
   // 开始模拟或重置
@@ -191,7 +372,7 @@ export default function PlayPage() {
       runningSimulation.current = sim;
     } catch (err) {
       console.error('模拟失败:', err);
-      showToast.error('模拟失败：' + err.message);
+      showToast.error(t('simulationFailed') + ': ' + err.message);
       setSimulating(false);
     }
   };
@@ -250,7 +431,7 @@ export default function PlayPage() {
         height: '100vh',
         background: 'linear-gradient(135deg, #fffbf0 0%, #fff8e1 50%, #ffeaa7 100%)'
       }}>
-        <p style={{ fontSize: 18, color: '#222' }}>加载中...</p>
+        <p style={{ fontSize: 18, color: '#222' }}>{t('loading')}</p>
       </div>
     );
   }
@@ -279,7 +460,7 @@ export default function PlayPage() {
             fontWeight: 500
           }}
         >
-          返回首页
+          {t('backToHome')}
         </a>
       </div>
     );
@@ -331,14 +512,14 @@ export default function PlayPage() {
             fontSize: 13,
             color: '#666'
           }}>
-            <span style={{ color: '#ff9800' }}>❤️ {animation.like_count || 0} 点赞</span>
+            <span style={{ color: '#ff9800' }}>❤️ {animation.like_count || 0} {t('likes')}</span>
             {animation.author_name && (
               <span style={{ color: '#666', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
                   <circle cx="12" cy="8" r="4" stroke="#ff9800" strokeWidth="2" strokeLinecap="round" />
                   <path d="M6 21C6 17.134 8.686 14 12 14C15.314 14 18 17.134 18 21" stroke="#ff9800" strokeWidth="2" strokeLinecap="round" />
                 </svg>
-                作者：{animation.author_name}
+                {t('author')}{animation.author_name}
               </span>
             )}
           </div>
@@ -369,7 +550,7 @@ export default function PlayPage() {
             e.target.style.boxShadow = 'none';
           }}
         >
-          ← 返回首页
+          ← {t('backToHome')}
         </a>
       </div>
 
@@ -389,6 +570,7 @@ export default function PlayPage() {
           minWidth: 0
         }}>
           <div
+            ref={canvasContainerRef}
             style={{
               position: 'relative',
               flex: 1,
@@ -407,7 +589,7 @@ export default function PlayPage() {
                 <img
                   ref={imgRef}
                   src={animation.scene_data.imagePreview}
-                  alt="动画场景"
+                  alt={t('animationScene')}
                   style={{
                     position: 'absolute',
                     top: '50%',
@@ -417,6 +599,21 @@ export default function PlayPage() {
                     maxHeight: '100%',
                     borderRadius: 16,
                     pointerEvents: 'none',
+                  }}
+                  onLoad={handleImageLoad}
+                />
+                <canvas
+                  ref={canvasRef}
+                  onMouseUp={handleCanvasMouseUp}
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    zIndex: interactionMode === 'edit_path' ? 50 : 2,
+                    cursor: interactionMode === 'edit_path' ? 'crosshair' : 'default',
+                    pointerEvents: interactionMode === 'edit_path' ? 'auto' : 'none',
+                    borderRadius: 16,
                   }}
                 />
                 <div
@@ -428,6 +625,42 @@ export default function PlayPage() {
                     pointerEvents: 'none'
                   }}
                 />
+                {isPathEditMode && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 12,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    background: 'rgba(16, 185, 129, 0.9)',
+                    color: '#fff',
+                    padding: '6px 14px',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    zIndex: 10,
+                    pointerEvents: 'auto'
+                  }}>
+                    <span>{t('pathEditModeHint')}</span>
+                    <button
+                      onClick={disablePathEdit}
+                      style={{
+                        padding: '4px 10px',
+                        background: 'rgba(255,255,255,0.3)',
+                        border: '1px solid rgba(255,255,255,0.5)',
+                        borderRadius: 6,
+                        color: '#fff',
+                        cursor: 'pointer',
+                        fontSize: 12,
+                        fontWeight: 600
+                      }}
+                    >
+                      {t('finishEditing')}
+                    </button>
+                  </div>
+                )}
               </>
             )}
 
@@ -464,7 +697,7 @@ export default function PlayPage() {
                   e.target.style.transform = 'translateY(0)';
                 }}
               >
-                {simulating ? '🔄 重置' : '▶️ 开始模拟'}
+                {simulating ? t('reset') : t('startSimulationPlay')}
               </button>
             </div>
           </div>

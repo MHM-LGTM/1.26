@@ -16,17 +16,22 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 export default function ConfirmDialog({
   isOpen,
-  title = '确认操作',
+  title,
   message,
   onConfirm,
   onCancel,
-  confirmText = '确定',
-  cancelText = '取消',
+  confirmText,
+  cancelText,
   confirmStyle = 'primary' // 'primary' | 'danger'
 }) {
+  const { t } = useTranslation();
+  title = title || t('confirmAction');
+  confirmText = confirmText || t('confirm');
+  cancelText = cancelText || t('cancel');
   if (!isOpen) return null;
 
   const confirmButtonStyle = confirmStyle === 'danger' 

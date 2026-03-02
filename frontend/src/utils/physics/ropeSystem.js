@@ -21,10 +21,10 @@ export class VerletRope {
      * @param {number} endX - 结束点 X 坐标
      * @param {number} endY - 结束点 Y 坐标
      * @param {number} segments - 绳子段数（默认 15）
-     * @param {number} stiffness - 刚度系数（0-1，默认 0.95，更硬更真实）
-     * @param {number} damping - 阻尼系数（0-1，默认 0.98）
+     * @param {number} stiffness - 刚度系数（0-1，默认 0.999，非常硬，接近刚性）
+     * @param {number} damping - 阻尼系数（0-1，默认 0.99）
      */
-    constructor(startX, startY, endX, endY, segments = 15, stiffness = 0.95, damping = 0.98) {
+    constructor(startX, startY, endX, endY, segments = 15, stiffness = 0.999, damping = 0.99) {
         this.segments = segments;
         this.stiffness = stiffness;
         this.damping = damping;
@@ -48,8 +48,8 @@ export class VerletRope {
         }
         
         // 创建约束（每个点与下一个点的距离）
-        // 更紧绷的初始状态（1.02倍），模拟真实绳子的物理特性
-        const segmentLength = Math.sqrt(dx * dx + dy * dy) * 1.02;
+        // 精确的初始长度（1.0倍），模拟不可伸缩的硬绳
+        const segmentLength = Math.sqrt(dx * dx + dy * dy) * 1.0;
         for (let i = 0; i < segments; i++) {
             this.constraints.push({
                 p1: i,
@@ -135,12 +135,13 @@ export class VerletRope {
         }
         
         // Verlet 积分后立即进行刚体碰撞检测，防止快速移动时穿透
+        // 注意：绳子连接的两个物体（端点附着的刚体）会被完全跳过碰撞检测，像质点连接一样
         if (bodies && bodies.length > 0) {
             for (let point of this.points) {
                 if (point.pinned) continue;
                 
                 for (let body of bodies) {
-                    // 跳过附着的刚体
+                    // 跳过附着的刚体（完全不检测碰撞，像质点一样）
                     if ((this.attachments.start && this.attachments.start.body === body) ||
                         (this.attachments.end && this.attachments.end.body === body)) {
                         continue;
@@ -176,9 +177,9 @@ export class VerletRope {
             }
         }
         
-        // 约束求解（参考滑轮算法，使用25次迭代）
-        for (let iter = 0; iter < 25; iter++) {
-            // 距离约束（绳子只能拉伸，不能压缩）
+        // 约束求解（使用50次迭代，确保硬绳效果）
+        for (let iter = 0; iter < 50; iter++) {
+            // 距离约束（绳子几乎不可伸缩）
             for (let c of this.constraints) {
                 const p1 = this.points[c.p1];
                 const p2 = this.points[c.p2];
@@ -189,15 +190,15 @@ export class VerletRope {
                 
                 if (dist < 0.0001) continue;
                 
-                // 允许极小的拉伸（最多1%），但绝不允许压缩
-                const maxStretch = c.length * 1.01;
+                // 允许极小的拉伸（最多0.5%），模拟真实绳子的微小弹性
+                const maxStretch = c.length * 1.005;
                 
                 let targetDist = c.length;
                 if (dist > maxStretch) {
                     targetDist = maxStretch;
                 }
                 
-                // 总是施加约束力，让绳子保持形状
+                // 施加强约束力，让绳子保持固定长度
                 const diff = (targetDist - dist) / dist * this.stiffness;
                 const offsetX = dx * diff * 0.5;
                 const offsetY = dy * diff * 0.5;
@@ -213,12 +214,13 @@ export class VerletRope {
             }
             
             // 刚体碰撞约束（严格版，防止嵌入）
+            // 注意：绳子连接的两个物体（端点附着的刚体）会被完全跳过碰撞检测，像质点连接一样
             if (bodies && bodies.length > 0) {
                 for (let point of this.points) {
                     if (point.pinned) continue;
                     
                     for (let body of bodies) {
-                        // 跳过附着的刚体
+                        // 跳过附着的刚体（完全不检测碰撞，像质点一样）
                         if ((this.attachments.start && this.attachments.start.body === body) ||
                             (this.attachments.end && this.attachments.end.body === body)) {
                             continue;
