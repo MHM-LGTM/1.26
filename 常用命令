@@ -8,18 +8,6 @@ uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 # ========================================
 # 启动后端（使用虚拟环境，在 backend 目录下执行）
 cd /root/12.26/backend && nohup /root/12.26/myenv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > app.log 2>&1 &
-
-# 停止后端
-pkill -f "uvicorn app.main:app"
-screen -S frontend 创建一个新的终端
-screen -S backend 创建一个新的终端
-screen -r frontend或者screen -r backend 将终端挂后台
-Ctrl+A+D 将终端挂后台
-/init 初始化项目
-/clear 清除缓存，适用于执行新的目录
-/think 第一级别思考
-/think hard 第二级别思考
-/think harder 第三级别思考
-/ 第四级别思考
-/compack 压缩缓存
-# 输入井号后，可在后面输入内容输入的内容会变成ai的长期记忆
+推送命令
+国内线：git push origin main
+海外线：git push origin overseas-main
