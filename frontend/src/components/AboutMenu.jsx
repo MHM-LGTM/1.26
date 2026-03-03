@@ -4,12 +4,11 @@
  * 功能：
  * - 显示"关于"按钮
  * - 点击展开下拉菜单
- * - 提供加入我们、会员获取、使用教程、问题反馈等选项
+ * - 提供会员获取、使用教程、问题反馈等选项
  */
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import JoinUsModal from './JoinUsModal';
 import MembershipModal from './MembershipModal';
 import TutorialModal from './TutorialModal';
 import FeedbackModal from './FeedbackModal';
@@ -19,7 +18,6 @@ import '../components/Auth/styles.css';
 export default function AboutMenu() {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
-  const [showJoinUsModal, setShowJoinUsModal] = useState(false);
   const [showMembershipModal, setShowMembershipModal] = useState(false);
   const [showTutorialModal, setShowTutorialModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
@@ -46,10 +44,6 @@ export default function AboutMenu() {
     setIsOpen(false);
     
     switch(option) {
-      case 'joinUs':
-        // 【2026-02-09 临时禁用】显示即将开放提示
-        showToast.info(t('featureComingSoon'), 3000);
-        break;
       case 'membership':
         // 【2026-02-09 临时禁用】显示即将开放提示
         showToast.info(t('featureComingSoon'), 3000);
@@ -95,9 +89,6 @@ export default function AboutMenu() {
 
         {isOpen && (
           <div className="user-menu-dropdown">
-            <div className="user-menu-item" onClick={() => handleMenuClick('joinUs')}>
-              {t('joinUs')}
-            </div>
             <div className="user-menu-item" onClick={() => handleMenuClick('membership')}>
               {t('membership')}
             </div>
@@ -112,10 +103,6 @@ export default function AboutMenu() {
       </div>
 
       {/* 所有弹窗 */}
-      <JoinUsModal 
-        isOpen={showJoinUsModal} 
-        onClose={() => setShowJoinUsModal(false)} 
-      />
       <MembershipModal 
         isOpen={showMembershipModal} 
         onClose={() => setShowMembershipModal(false)} 
