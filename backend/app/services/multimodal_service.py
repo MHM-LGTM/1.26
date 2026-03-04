@@ -76,7 +76,11 @@ def _simplify_elements(full: Dict[str, Any]) -> List[str]:
     return names
 
 
-def analyze_physics_image(image_path: str, user_text: Optional[str] = None) -> Dict[str, Any]:
+def analyze_physics_image(
+    image_path: str,
+    user_text: Optional[str] = None,
+    language: Optional[str] = None,
+) -> Dict[str, Any]:
     """调用豆包多模态分析物理场景并返回结构化结果。
 
     返回字典示例：
@@ -89,8 +93,8 @@ def analyze_physics_image(image_path: str, user_text: Optional[str] = None) -> D
     """
     client = _get_client()
     data_url = image_to_data_url(image_path)
-    system_prompt = physics_analysis_system_prompt()
-    user_prompt = build_user_prompt(user_text)
+    system_prompt = physics_analysis_system_prompt(language)
+    user_prompt = build_user_prompt(user_text, language)
 
     t0 = time.perf_counter()
     try:

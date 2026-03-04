@@ -69,7 +69,7 @@ import { showToast } from '../utils/toast.js';
 import { useTranslation } from 'react-i18next';
 
 const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClosePlazaInfo, onClearPlazaSelection }, ref) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -502,7 +502,8 @@ const PhysicsInputBox = forwardRef(({ animationSource, plazaAnimationInfo, onClo
       };
       reader.readAsDataURL(file);
 
-      const resp = await uploadImage(file, uploadId);
+      const currentLang = i18n.language?.startsWith('en') ? 'en' : 'zh';
+      const resp = await uploadImage(file, uploadId, currentLang);
       const data = resp?.data || {};
       
       // ========================================================================

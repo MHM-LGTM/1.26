@@ -12,7 +12,6 @@ import { useTranslation } from 'react-i18next';
 import MembershipModal from './MembershipModal';
 import TutorialModal from './TutorialModal';
 import FeedbackModal from './FeedbackModal';
-import { showToast } from '../utils/toast.js';
 import '../components/Auth/styles.css';
 
 export default function AboutMenu() {
@@ -45,8 +44,7 @@ export default function AboutMenu() {
     
     switch(option) {
       case 'membership':
-        // 【2026-02-09 临时禁用】显示即将开放提示
-        showToast.info(t('featureComingSoon'), 3000);
+        setShowMembershipModal(true);
         break;
       case 'tutorial':
         setShowTutorialModal(true);

@@ -24,10 +24,69 @@
 
 from __future__ import annotations
 
+import re
 from typing import Optional
 
 
-def physics_analysis_system_prompt() -> str:
+def _normalize_language(language: Optional[str]) -> str:
+    lang = (language or "").strip().lower()
+    if lang.startswith("en"):
+        return "en"
+    return "zh"
+
+
+def normalize_language(language: Optional[str]) -> str:
+    """统一语言标识，仅返回 en 或 zh。"""
+    return _normalize_language(language)
+
+
+def contains_cjk(text: str) -> bool:
+    """判断文本是否包含中文字符。"""
+    return bool(re.search(r"[\u4e00-\u9fff]", text or ""))
+
+
+def to_english_name(raw_name: str, fallback_idx: int) -> str:
+    """将常见中文物理元素名映射为英文；无法映射时返回 object N。"""
+    name = (raw_name or "").strip()
+    if not name:
+        return f"object {fallback_idx + 1}"
+
+    replacements = [
+        ("传送带", "conveyor belt"),
+        ("输送带", "conveyor belt"),
+        ("定滑轮", "fixed pulley"),
+        ("滑轮", "pulley"),
+        ("天花板", "ceiling"),
+        ("墙壁", "wall"),
+        ("斜面", "ramp"),
+        ("地面", "ground"),
+        ("弹簧", "spring"),
+        ("绳索", "rope"),
+        ("绳子", "rope"),
+        ("支点", "pivot"),
+        ("锚点", "anchor"),
+        ("小球", "ball"),
+        ("圆球", "ball"),
+        ("球体", "ball"),
+        ("木块", "block"),
+        ("方块", "block"),
+        ("滑块", "block"),
+        ("物块", "block"),
+        ("未知元素", "object"),
+    ]
+    out = name
+    for zh, en in replacements:
+        out = out.replace(zh, en)
+
+    out = re.sub(r"\b([A-Za-z]+)([A-Z0-9])\b", r"\1 \2", out)
+    out = re.sub(r"\s+", " ", out).strip()
+
+    if contains_cjk(out):
+        return f"object {fallback_idx + 1}"
+    return out or f"object {fallback_idx + 1}"
+
+
+def physics_analysis_system_prompt(language: Optional[str] = None) -> str:
     """返回系统提示词，指导模型进行物理元素与参数抽取。
 
     设计要点：
@@ -46,6 +105,17 @@ def physics_analysis_system_prompt() -> str:
     - 若图片/文本不足以确定参数，使用 null，并在 `assumptions` 中写出假设或推断依据；
     - 输出必须是严格 JSON，键名固定。
     """
+
+    output_lang = _normalize_language(language)
+    output_rule = (
+        "输出语言规则（严格执行）："
+        "\n- 所有可读文本字段必须使用英文：包括 elements[].name、visual_description、assumptions、constraints.pivot_prompt、constraints.second_pivot_prompt。"
+        "\n- 不要输出中文元素名。示例名称应使用 block/ramp/ground/ball/spring/wall/ceiling/pivot 等英文词。"
+    ) if output_lang == "en" else (
+        "输出语言规则（严格执行）："
+        "\n- 所有可读文本字段必须使用中文：包括 elements[].name、visual_description、assumptions、constraints.pivot_prompt、constraints.second_pivot_prompt。"
+        "\n- 不要输出英文元素名。"
+    )
 
     return (
         "你是一名物理教学助理。请结合图片与用户文本，识别参与模拟的元素，并给出可用于物理模拟的参数。"
@@ -227,17 +297,24 @@ def physics_analysis_system_prompt() -> str:
         "  * visual_description 应描述绳索的位置（如 \"连接两个木块的细绳\"、\"悬挂物体的麻绳\"）\n"
         "- 若无法确定参数，填 null，并在 assumptions 说明原因或取值依据；\n"
         "- gravity_m_s2 默认 9.8（如未给出），角度单位为度；\n"
-        "- elements 可包含多个实例（如多个球体进行碰撞）。"
+        "- elements 可包含多个实例（如多个球体进行碰撞）。\n"
+        f"- {output_rule}"
     )
 
 
-def build_user_prompt(user_text: Optional[str] = None) -> str:
+def build_user_prompt(user_text: Optional[str] = None, language: Optional[str] = None) -> str:
     """构造用户提示文本（可为空）。
 
     - user_text: 题目或描述，如 "滑块质量 2kg，斜面角度 30°"；
     - 返回：合并的简单中文提示，用于提供上下文线索。
     """
-    base = "请分析图片中的物理场景，返回元素与参数的 JSON。"
+    lang = _normalize_language(language)
+    if lang == "en":
+        base = "Please analyze the physics scene in the image and return JSON with elements and parameters. Output readable text fields in English."
+    else:
+        base = "请分析图片中的物理场景，返回元素与参数的 JSON。"
     if user_text:
+        if lang == "en":
+            return f"{base}\nProblem statement: {user_text.strip()}"
         return f"{base}\n题目描述：{user_text.strip()}"
     return base

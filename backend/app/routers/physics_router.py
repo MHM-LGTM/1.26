@@ -46,6 +46,7 @@ from ..services.segment_service import segment_with_points, segment_with_box, pr
 from ..services.multimodal_service import analyze_physics_image
 from ..services.opencv_service import extract_sprite, inpaint_remove_objects
 from ..services.auth_service import get_current_user
+from ..utils.prompt_utils import normalize_language, contains_cjk, to_english_name
 
 
 router = APIRouter()
@@ -60,7 +61,7 @@ _upload_semaphore = asyncio.Semaphore(5)
 _executor = ThreadPoolExecutor(max_workers=10)  # 全局线程池，复用避免重复创建
 
 
-def _normalize_elements(full: Dict[str, object] | None) -> List[Dict[str, object]]:
+def _normalize_elements(full: Dict[str, object] | None, language: Optional[str] = None) -> List[Dict[str, object]]:
     """将多模态返回的元素标准化，保留原始名称，不再对同名元素添加标注。
 
     2025-11-23 更新：
@@ -74,6 +75,7 @@ def _normalize_elements(full: Dict[str, object] | None) -> List[Dict[str, object
     - spring_constraint: 约束型弹簧，连接两个物体
     - spring_launcher: 弹射型弹簧，一端固定，另一端弹射物体
     """
+    output_lang = normalize_language(language)
     raw_list: List[object] = []
     allowed_types = {
         "rigid_body",
@@ -92,8 +94,9 @@ def _normalize_elements(full: Dict[str, object] | None) -> List[Dict[str, object
         raw_list = tmp if isinstance(tmp, list) else []
     normalized: List[Dict[str, object]] = []
     for i, item in enumerate(raw_list):
-        base_name = item.get("name") if isinstance(item, dict) else None
-        base_name = base_name if isinstance(base_name, str) and base_name else "未知元素"
+        base_name_raw = item.get("name") if isinstance(item, dict) else None
+        base_name_raw = base_name_raw if isinstance(base_name_raw, str) and base_name_raw else "未知元素"
+        base_name = to_english_name(base_name_raw, i) if output_lang == "en" else base_name_raw
         role = item.get("role") if isinstance(item, dict) else None
         params = item.get("parameters") if isinstance(item, dict) else {}
         if not isinstance(params, dict):
@@ -109,6 +112,8 @@ def _normalize_elements(full: Dict[str, object] | None) -> List[Dict[str, object
 
         # 提取视觉描述，帮助用户在图片中识别元素
         visual_description = item.get("visual_description", "") if isinstance(item, dict) else ""
+        if output_lang == "en" and contains_cjk(visual_description):
+            visual_description = f"{base_name} in the image"
 
         # 提取约束关系信息
         constraints_raw = item.get("constraints", {}) if isinstance(item, dict) else {}
@@ -136,7 +141,15 @@ def _normalize_elements(full: Dict[str, object] | None) -> List[Dict[str, object
             constraints["needs_second_pivot"] = False
             constraints["constraint_type"] = "pendulum"
             if constraints.get("pivot_prompt") is None:
-                constraints["pivot_prompt"] = "请选择摆球的支点"
+                constraints["pivot_prompt"] = "Please select the pendulum pivot" if output_lang == "en" else "请选择摆球的支点"
+
+        if output_lang == "en":
+            if isinstance(constraints.get("suggested_pivot"), str):
+                constraints["suggested_pivot"] = to_english_name(constraints["suggested_pivot"], i)
+            if isinstance(constraints.get("pivot_prompt"), str) and contains_cjk(constraints["pivot_prompt"]):
+                constraints["pivot_prompt"] = "Please select the first connection point"
+            if isinstance(constraints.get("second_pivot_prompt"), str) and contains_cjk(constraints["second_pivot_prompt"]):
+                constraints["second_pivot_prompt"] = "Please select the second connection point"
 
         # 定滑轮类型规整
         if element_type == "pulley_fixed":
@@ -207,6 +220,7 @@ def _normalize_elements(full: Dict[str, object] | None) -> List[Dict[str, object
 async def upload_image(
     file: UploadFile = File(...), 
     upload_id: Optional[str] = Form(None),
+    language: Optional[str] = Form(None),
     current_user = Depends(get_current_user)
 ):
     """保存物理模拟图片，预热 embedding 并调用豆包分析，返回元素与耗时。
@@ -238,7 +252,7 @@ async def upload_image(
     # ========================================================================
     # 【2026-02-14 新增】记录 upload_id，用于请求追踪
     # ========================================================================
-    log.info(f"[上传] 收到请求, upload_id={upload_id}, 文件名={file.filename}")
+    log.info(f"[上传] 收到请求, upload_id={upload_id}, language={language}, 文件名={file.filename}")
     
     # 保存图片
     save_path, _ = await save_upload_file(file, "physics")
@@ -278,7 +292,7 @@ async def upload_image(
         async def ai_task():
             try:
                 loop = asyncio.get_event_loop()
-                return await loop.run_in_executor(_executor, analyze_physics_image, str(save_path))
+                return await loop.run_in_executor(_executor, analyze_physics_image, str(save_path), None, language)
             except Exception as e:
                 log.error(f"[AI失败] {e}")
                 return {"ai_ms": -1, "elements": [], "full": None, "error": str(e)}
@@ -298,7 +312,9 @@ async def upload_image(
     ai_ms = int(ai_result.get("ai_ms", -1))
     elements = ai_result.get("elements", [])
     full = ai_result.get("full")
-    elements_detailed = _normalize_elements(full)
+    elements_detailed = _normalize_elements(full, language)
+    if normalize_language(language) == "en":
+        elements = [to_english_name(str(n), i) for i, n in enumerate(elements or [])]
     analysis = {
         "elements": elements_detailed,
         "assumptions": (full or {}).get("assumptions", []),
