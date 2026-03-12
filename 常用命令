@@ -11,3 +11,12 @@ cd /root/12.26/backend && nohup /root/12.26/myenv/bin/python -m uvicorn app.main
 推送命令
 国内线：git push origin main
 海外线：git push origin overseas-main
+会员添加方法：
+# 赠送30天会员
+python backend/grant_vip.py 18705982800 15 "感谢参与调研"
+
+# 赠送永久会员
+python backend/grant_vip.py 13800138000 0 "核心测试用户"
+
+# 列出所有会员用户
+python backend/grant_vip.py --list

@@ -232,8 +232,12 @@
   background: white;
   border: 2px dashed #e5e7eb;
   border-radius: 12px;
-  padding: 10px;
+  padding: 6px;
   transition: all 0.2s;
+}
+
+.qrcode-button {
+  cursor: pointer;
 }
 
 .qrcode-box:hover {
@@ -245,6 +249,65 @@
   font-size: 14px;
   color: #6b7280;
   font-weight: 500;
+}
+
+.qrcode-image {
+  width: 140px;
+  height: 140px;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
+}
+
+.qrcode-preview-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1100;
+}
+
+.qrcode-preview-content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px;
+  width: min(90vw, 560px);
+  max-height: 90vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.3);
+  z-index: 1101;
+}
+
+.qrcode-preview-image {
+  width: 100%;
+  height: auto;
+  max-height: calc(90vh - 32px);
+  object-fit: contain;
+  border-radius: 10px;
+  display: block;
+}
+
+.qrcode-preview-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* 滚动条样式 */
@@ -295,8 +358,13 @@
     height: 120px;
   }
 
-  .qrcode-box svg {
+  .qrcode-image {
     width: 100px;
     height: 100px;
+  }
+
+  .qrcode-preview-content {
+    width: 92vw;
+    padding: 12px;
   }
 }
